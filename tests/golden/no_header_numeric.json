@@ -1,0 +1,91 @@
+{
+  "source_path": "no_header_numeric.xlsx",
+  "table_count": 1,
+  "tables": [
+    {
+      "detected": {
+        "sheet": "NoHeader",
+        "table_index": 0,
+        "range": "A1:C4",
+        "header_row": 1,
+        "confidence": 0.3667,
+        "signals": {
+          "filled": 1.0,
+          "texty": 0.0,
+          "unique": 0.3333,
+          "distinct_from_next": 0.0
+        }
+      },
+      "profile": {
+        "name": "NoHeader!A1:C4",
+        "n_rows": 3,
+        "n_columns": 3,
+        "columns": [
+          {
+            "name": "1",
+            "type": "number",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min": 2.0,
+              "max": 4.0,
+              "mean": 3.0,
+              "sum": 9.0
+            }
+          },
+          {
+            "name": "1_1",
+            "type": "number",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min": 2.0,
+              "max": 4.0,
+              "mean": 3.0,
+              "sum": 9.0
+            }
+          },
+          {
+            "name": "1_2",
+            "type": "number",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min": 2.0,
+              "max": 4.0,
+              "mean": 3.0,
+              "sum": 9.0
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "code": "low-confidence-header",
+      "message": "Sheet 'NoHeader' table 0: header row 1 chosen with low confidence (0.3667). Verify the header.",
+      "location": "NoHeader!A1:C4",
+      "confidence": 0.3667
+    },
+    {
+      "severity": "info",
+      "code": "duplicate-header",
+      "message": "Sheet 'NoHeader' duplicate header '1' renamed '1_1'.",
+      "location": "NoHeader"
+    },
+    {
+      "severity": "info",
+      "code": "duplicate-header",
+      "message": "Sheet 'NoHeader' duplicate header '1' renamed '1_2'.",
+      "location": "NoHeader"
+    }
+  ]
+}

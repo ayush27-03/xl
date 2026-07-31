@@ -1,0 +1,67 @@
+{
+  "source_path": "dates_and_bools.xlsx",
+  "table_count": 1,
+  "tables": [
+    {
+      "detected": {
+        "sheet": "Types",
+        "table_index": 0,
+        "range": "A1:C4",
+        "header_row": 1,
+        "confidence": 1.0,
+        "signals": {
+          "filled": 1.0,
+          "texty": 1.0,
+          "unique": 1.0,
+          "distinct_from_next": 1.0
+        }
+      },
+      "profile": {
+        "name": "Types!A1:C4",
+        "n_rows": 3,
+        "n_columns": 3,
+        "columns": [
+          {
+            "name": "When",
+            "type": "date",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min": "2026-01-01T00:00:00",
+              "max": "2026-03-01T00:00:00"
+            }
+          },
+          {
+            "name": "Active",
+            "type": "bool",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 2,
+            "stats": {
+              "true_count": 2,
+              "false_count": 1
+            }
+          },
+          {
+            "name": "Count",
+            "type": "number",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min": 5.0,
+              "max": 15.0,
+              "mean": 10.0,
+              "sum": 30.0
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": []
+}

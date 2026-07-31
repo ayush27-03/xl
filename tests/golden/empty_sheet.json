@@ -1,0 +1,13 @@
+{
+  "source_path": "empty_sheet.xlsx",
+  "table_count": 0,
+  "tables": [],
+  "diagnostics": [
+    {
+      "severity": "info",
+      "code": "empty-sheet",
+      "message": "Sheet 'Empty' has no populated cells; no tables detected.",
+      "location": "Empty"
+    }
+  ]
+}

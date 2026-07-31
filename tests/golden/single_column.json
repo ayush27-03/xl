@@ -1,0 +1,45 @@
+{
+  "source_path": "single_column.xlsx",
+  "table_count": 1,
+  "tables": [
+    {
+      "detected": {
+        "sheet": "One",
+        "table_index": 0,
+        "range": "A1:A4",
+        "header_row": 1,
+        "confidence": 0.85,
+        "signals": {
+          "filled": 1.0,
+          "texty": 1.0,
+          "unique": 1.0,
+          "distinct_from_next": 0.0
+        }
+      },
+      "profile": {
+        "name": "One!A1:A4",
+        "n_rows": 3,
+        "n_columns": 1,
+        "columns": [
+          {
+            "name": "Fruit",
+            "type": "text",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min_length": 5,
+              "max_length": 6,
+              "most_common": {
+                "value": "Apple",
+                "count": 1
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": []
+}

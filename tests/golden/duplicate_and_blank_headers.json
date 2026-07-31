@@ -1,0 +1,100 @@
+{
+  "source_path": "duplicate_and_blank_headers.xlsx",
+  "table_count": 1,
+  "tables": [
+    {
+      "detected": {
+        "sheet": "Dups",
+        "table_index": 0,
+        "range": "A1:D3",
+        "header_row": 1,
+        "confidence": 0.8208,
+        "signals": {
+          "filled": 0.75,
+          "texty": 1.0,
+          "unique": 0.6667,
+          "distinct_from_next": 0.75
+        }
+      },
+      "profile": {
+        "name": "Dups!A1:D3",
+        "n_rows": 2,
+        "n_columns": 4,
+        "columns": [
+          {
+            "name": "ID",
+            "type": "number",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min": 1.0,
+              "max": 2.0,
+              "mean": 1.5,
+              "sum": 3.0
+            }
+          },
+          {
+            "name": "Val",
+            "type": "number",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min": 10.0,
+              "max": 20.0,
+              "mean": 15.0,
+              "sum": 30.0
+            }
+          },
+          {
+            "name": "Val_1",
+            "type": "number",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min": 100.0,
+              "max": 200.0,
+              "mean": 150.0,
+              "sum": 300.0
+            }
+          },
+          {
+            "name": "column_4",
+            "type": "text",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min_length": 1,
+              "max_length": 1,
+              "most_common": {
+                "value": "x",
+                "count": 1
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": [
+    {
+      "severity": "info",
+      "code": "duplicate-header",
+      "message": "Sheet 'Dups' duplicate header 'Val' renamed 'Val_1'.",
+      "location": "Dups"
+    },
+    {
+      "severity": "info",
+      "code": "empty-header",
+      "message": "Sheet 'Dups' header 4 was blank; named 'column_4'.",
+      "location": "Dups"
+    }
+  ]
+}

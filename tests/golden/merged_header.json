@@ -1,0 +1,88 @@
+{
+  "source_path": "merged_header.xlsx",
+  "table_count": 1,
+  "tables": [
+    {
+      "detected": {
+        "sheet": "Merged",
+        "table_index": 0,
+        "range": "A1:C3",
+        "header_row": 1,
+        "confidence": 0.8,
+        "signals": {
+          "filled": 0.6667,
+          "texty": 1.0,
+          "unique": 1.0,
+          "distinct_from_next": 0.3333
+        }
+      },
+      "profile": {
+        "name": "Merged!A1:C3",
+        "n_rows": 2,
+        "n_columns": 3,
+        "columns": [
+          {
+            "name": "Location",
+            "type": "text",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min_length": 5,
+              "max_length": 6,
+              "most_common": {
+                "value": "London",
+                "count": 1
+              }
+            }
+          },
+          {
+            "name": "Location_1",
+            "type": "text",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min_length": 2,
+              "max_length": 2,
+              "most_common": {
+                "value": "FR",
+                "count": 1
+              }
+            }
+          },
+          {
+            "name": "Amount",
+            "type": "number",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min": 10.0,
+              "max": 20.0,
+              "mean": 15.0,
+              "sum": 30.0
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": [
+    {
+      "severity": "info",
+      "code": "merged-cells",
+      "message": "Sheet 'Merged' region A1:C3: merged cells filled with their top-left value (default policy).",
+      "location": "Merged!A1:C3"
+    },
+    {
+      "severity": "info",
+      "code": "duplicate-header",
+      "message": "Sheet 'Merged' duplicate header 'Location' renamed 'Location_1'.",
+      "location": "Merged"
+    }
+  ]
+}

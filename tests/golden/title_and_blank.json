@@ -1,0 +1,80 @@
+{
+  "source_path": "title_and_blank.xlsx",
+  "table_count": 1,
+  "tables": [
+    {
+      "detected": {
+        "sheet": "Report",
+        "table_index": 0,
+        "range": "A3:C6",
+        "header_row": 3,
+        "confidence": 0.95,
+        "signals": {
+          "filled": 1.0,
+          "texty": 1.0,
+          "unique": 1.0,
+          "distinct_from_next": 0.6667
+        }
+      },
+      "profile": {
+        "name": "Report!A3:C6",
+        "n_rows": 3,
+        "n_columns": 3,
+        "columns": [
+          {
+            "name": "Region",
+            "type": "text",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min_length": 4,
+              "max_length": 5,
+              "most_common": {
+                "value": "East",
+                "count": 1
+              }
+            }
+          },
+          {
+            "name": "Units",
+            "type": "number",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min": 60.0,
+              "max": 120.0,
+              "mean": 91.66666666666667,
+              "sum": 275.0
+            }
+          },
+          {
+            "name": "Revenue",
+            "type": "number",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min": 700.0,
+              "max": 1500.5,
+              "mean": 1106.8333333333333,
+              "sum": 3320.5
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": [
+    {
+      "severity": "info",
+      "code": "non-tabular-region",
+      "message": "Sheet 'Report' region A1:A1 has a header but no data rows; treated as title/notes, not a table.",
+      "location": "Report!A1:A1"
+    }
+  ]
+}

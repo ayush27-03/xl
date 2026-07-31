@@ -9,8 +9,15 @@ description = "Deterministic analysis of messy .xlsx workbooks: table detection,
 requires-python = ">=3.10"
 dependencies = ["openpyxl>=3.1"]
 
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
 [project.scripts]
 excel-analyze = "excel_analysis.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["excel_analysis*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]

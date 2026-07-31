@@ -1,0 +1,111 @@
+{
+  "source_path": "stacked_tables.xlsx",
+  "table_count": 2,
+  "tables": [
+    {
+      "detected": {
+        "sheet": "Two",
+        "table_index": 0,
+        "range": "A1:B3",
+        "header_row": 1,
+        "confidence": 0.925,
+        "signals": {
+          "filled": 1.0,
+          "texty": 1.0,
+          "unique": 1.0,
+          "distinct_from_next": 0.5
+        }
+      },
+      "profile": {
+        "name": "Two!A1:B3",
+        "n_rows": 2,
+        "n_columns": 2,
+        "columns": [
+          {
+            "name": "Product",
+            "type": "text",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min_length": 6,
+              "max_length": 6,
+              "most_common": {
+                "value": "Gadget",
+                "count": 1
+              }
+            }
+          },
+          {
+            "name": "Price",
+            "type": "number",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min": 9.99,
+              "max": 19.99,
+              "mean": 14.989999999999998,
+              "sum": 29.979999999999997
+            }
+          }
+        ]
+      }
+    },
+    {
+      "detected": {
+        "sheet": "Two",
+        "table_index": 1,
+        "range": "A5:B7",
+        "header_row": 5,
+        "confidence": 0.925,
+        "signals": {
+          "filled": 1.0,
+          "texty": 1.0,
+          "unique": 1.0,
+          "distinct_from_next": 0.5
+        }
+      },
+      "profile": {
+        "name": "Two!A5:B7",
+        "n_rows": 2,
+        "n_columns": 2,
+        "columns": [
+          {
+            "name": "Region",
+            "type": "text",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min_length": 5,
+              "max_length": 5,
+              "most_common": {
+                "value": "North",
+                "count": 1
+              }
+            }
+          },
+          {
+            "name": "Total",
+            "type": "number",
+            "count": 2,
+            "null_count": 0,
+            "non_null_count": 2,
+            "unique_count": 2,
+            "stats": {
+              "min": 100.0,
+              "max": 200.0,
+              "mean": 150.0,
+              "sum": 300.0
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": []
+}

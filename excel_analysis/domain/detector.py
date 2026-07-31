@@ -37,13 +37,6 @@ _LOW_CONFIDENCE = 0.5
 def detect_tables(
     sheet: RawSheetGrid, diagnostics: Diagnostics
 ) -> tuple[DetectedTable, ...]:
-    if sheet.n_rows == 0 or sheet.n_cols == 0:
-        diagnostics.info(
-            "empty-sheet",
-            f"Sheet '{sheet.name}' has no cells; no tables detected.",
-            location=sheet.name,
-        )
-        return ()
     if sheet.hidden:
         diagnostics.warning(
             "hidden-sheet",
@@ -52,8 +45,17 @@ def detect_tables(
             location=sheet.name,
         )
 
+    blocks = _row_blocks(sheet)
+    if not blocks:
+        diagnostics.info(
+            "empty-sheet",
+            f"Sheet '{sheet.name}' has no populated cells; no tables detected.",
+            location=sheet.name,
+        )
+        return ()
+
     tables: list[DetectedTable] = []
-    for first_row, last_row in _row_blocks(sheet):
+    for first_row, last_row in blocks:
         table = _detect_in_block(sheet, first_row, last_row, len(tables), diagnostics)
         if table is not None:
             tables.append(table)

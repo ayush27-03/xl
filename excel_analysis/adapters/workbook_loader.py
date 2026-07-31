@@ -11,6 +11,7 @@ domain.
 from __future__ import annotations
 
 import os
+import zipfile
 from datetime import date, datetime
 
 import openpyxl
@@ -42,7 +43,7 @@ def load_workbook(path: str) -> RawWorkbook:
         raise WorkbookLoadError(f"File not found: {path}")
     try:
         wb = openpyxl.load_workbook(path, data_only=True, read_only=False)
-    except (InvalidFileException, OSError, KeyError, ValueError) as exc:
+    except (InvalidFileException, zipfile.BadZipFile, OSError, KeyError, ValueError) as exc:
         raise WorkbookLoadError(
             f"Could not open '{path}' as an .xlsx workbook: {exc}"
         ) from exc

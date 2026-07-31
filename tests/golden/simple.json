@@ -1,0 +1,75 @@
+{
+  "source_path": "simple.xlsx",
+  "table_count": 1,
+  "tables": [
+    {
+      "detected": {
+        "sheet": "Data",
+        "table_index": 0,
+        "range": "A1:C5",
+        "header_row": 1,
+        "confidence": 0.9,
+        "signals": {
+          "filled": 1.0,
+          "texty": 1.0,
+          "unique": 1.0,
+          "distinct_from_next": 0.3333
+        }
+      },
+      "profile": {
+        "name": "Data!A1:C5",
+        "n_rows": 4,
+        "n_columns": 3,
+        "columns": [
+          {
+            "name": "Name",
+            "type": "text",
+            "count": 4,
+            "null_count": 0,
+            "non_null_count": 4,
+            "unique_count": 3,
+            "stats": {
+              "min_length": 3,
+              "max_length": 5,
+              "most_common": {
+                "value": "Bob",
+                "count": 2
+              }
+            }
+          },
+          {
+            "name": "Age",
+            "type": "number",
+            "count": 4,
+            "null_count": 0,
+            "non_null_count": 4,
+            "unique_count": 3,
+            "stats": {
+              "min": 25.0,
+              "max": 41.0,
+              "mean": 30.25,
+              "sum": 121.0
+            }
+          },
+          {
+            "name": "City",
+            "type": "text",
+            "count": 4,
+            "null_count": 0,
+            "non_null_count": 4,
+            "unique_count": 3,
+            "stats": {
+              "min_length": 5,
+              "max_length": 6,
+              "most_common": {
+                "value": "Paris",
+                "count": 2
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": []
+}

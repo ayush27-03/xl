@@ -1,0 +1,61 @@
+{
+  "source_path": "mixed_types.xlsx",
+  "table_count": 1,
+  "tables": [
+    {
+      "detected": {
+        "sheet": "Mixed",
+        "table_index": 0,
+        "range": "A1:B4",
+        "header_row": 1,
+        "confidence": 0.925,
+        "signals": {
+          "filled": 1.0,
+          "texty": 1.0,
+          "unique": 1.0,
+          "distinct_from_next": 0.5
+        }
+      },
+      "profile": {
+        "name": "Mixed!A1:B4",
+        "n_rows": 3,
+        "n_columns": 2,
+        "columns": [
+          {
+            "name": "Item",
+            "type": "text",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {
+              "min_length": 4,
+              "max_length": 5,
+              "most_common": {
+                "value": "Apple",
+                "count": 1
+              }
+            }
+          },
+          {
+            "name": "Qty",
+            "type": "mixed",
+            "count": 3,
+            "null_count": 0,
+            "non_null_count": 3,
+            "unique_count": 3,
+            "stats": {}
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "code": "mixed-types",
+      "message": "Sheet 'Mixed' column 'Qty' holds mixed types (number, text); left as MIXED, not coerced.",
+      "location": "Mixed"
+    }
+  ]
+}
