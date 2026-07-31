@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "excel-analysis"
+version = "0.1.0"
+description = "Deterministic analysis of messy .xlsx workbooks: table detection, normalization, and profiling."
+requires-python = ">=3.10"
+dependencies = ["openpyxl>=3.1"]
+
+[project.scripts]
+excel-analyze = "excel_analysis.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["excel_analysis*"]
