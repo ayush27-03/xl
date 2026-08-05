@@ -14,6 +14,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Optional
 
+from .config import DEFAULT_CONFIG, Config
 from .diagnostics import Diagnostics
 from .models import (
     Column,
@@ -30,8 +31,13 @@ from .models import (
 
 
 def normalize(
-    sheet: RawSheetGrid, table: DetectedTable, diagnostics: Diagnostics
+    sheet: RawSheetGrid,
+    table: DetectedTable,
+    diagnostics: Diagnostics,
+    config: Config = DEFAULT_CONFIG,
 ) -> Dataset:
+    # config.unmerge_policy currently has a single value (PROPAGATE_TOP_LEFT);
+    # it is threaded here to reserve the seam for future unmerge policies.
     region = table.region
     header_row = table.header_row
     first_col, last_col = region.first_col, region.last_col

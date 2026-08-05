@@ -14,3 +14,7 @@ class AnalysisError(Exception):
 
 class WorkbookLoadError(AnalysisError):
     """The workbook could not be opened or is not a valid .xlsx file."""
+
+
+class ConfigError(AnalysisError):
+    """A configuration file or option was invalid."""

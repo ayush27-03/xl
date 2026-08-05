@@ -10,6 +10,12 @@ Strategy (deliberately simple for the first slice):
      separators -> this is how multiple stacked tables are found).
   2. In each block, score the first few rows as header candidates and pick the
      best; rows above it are recorded as title/notes.
+
+Overrides (auto-first posture): when the config pins a header row on this sheet,
+that row is forced and a `user-override` diagnostic is recorded (still with a
+heuristic confidence). An out-of-range or blank pinned row degrades to
+auto-detection with an `invalid-override` warning.
+
 Known limitation: two tables side-by-side in the same rows are not split. That
 is a future TableDetectionStrategy, not a silent wrong answer.
 """
@@ -18,6 +24,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from .config import DEFAULT_CONFIG, Config
 from .diagnostics import Diagnostics
 from .models import (
     CellRange,
@@ -28,14 +35,9 @@ from .models import (
     range_ref,
 )
 
-# How many rows at the top of a block to consider as the header.
-_MAX_HEADER_CANDIDATES = 5
-# Below this confidence, the header choice is flagged prominently.
-_LOW_CONFIDENCE = 0.5
-
 
 def detect_tables(
-    sheet: RawSheetGrid, diagnostics: Diagnostics
+    sheet: RawSheetGrid, diagnostics: Diagnostics, config: Config = DEFAULT_CONFIG
 ) -> tuple[DetectedTable, ...]:
     if sheet.hidden:
         diagnostics.warning(
@@ -44,6 +46,17 @@ def detect_tables(
             f"is intended.",
             location=sheet.name,
         )
+
+    override = config.override
+    if (
+        override is not None
+        and override.sheet == sheet.name
+        and override.header_row is not None
+    ):
+        forced = _forced_table(sheet, override.header_row, config, diagnostics)
+        if forced is not None:
+            return (forced,)
+        # invalid override was flagged; fall through to auto-detection.
 
     blocks = _row_blocks(sheet)
     if not blocks:
@@ -56,7 +69,9 @@ def detect_tables(
 
     tables: list[DetectedTable] = []
     for first_row, last_row in blocks:
-        table = _detect_in_block(sheet, first_row, last_row, len(tables), diagnostics)
+        table = _detect_in_block(
+            sheet, first_row, last_row, len(tables), config, diagnostics
+        )
         if table is not None:
             tables.append(table)
 
@@ -67,6 +82,72 @@ def detect_tables(
             location=sheet.name,
         )
     return tuple(tables)
+
+
+# --- Overrides --------------------------------------------------------------
+
+
+def _forced_table(
+    sheet: RawSheetGrid,
+    header_row: int,
+    config: Config,
+    diagnostics: Diagnostics,
+) -> Optional[DetectedTable]:
+    if not 0 <= header_row < sheet.n_rows:
+        diagnostics.warning(
+            "invalid-override",
+            f"Forced header row {header_row + 1} is outside sheet '{sheet.name}' "
+            f"(1..{sheet.n_rows}); falling back to auto-detection.",
+            location=sheet.name,
+        )
+        return None
+
+    block = next(
+        (b for b in _row_blocks(sheet) if b[0] <= header_row <= b[1]), None
+    )
+    span = _column_span(sheet, header_row, block[1]) if block is not None else None
+    if block is None or span is None:
+        diagnostics.warning(
+            "invalid-override",
+            f"Forced header row {header_row + 1} is blank on sheet '{sheet.name}'; "
+            f"falling back to auto-detection.",
+            location=sheet.name,
+        )
+        return None
+
+    first_col, last_col = span
+    region = CellRange(
+        first_row=header_row, last_row=block[1], first_col=first_col, last_col=last_col
+    )
+    if region.n_rows <= 1:
+        diagnostics.warning(
+            "invalid-override",
+            f"Forced header row {header_row + 1} has no data rows below it on sheet "
+            f"'{sheet.name}'; falling back to auto-detection.",
+            location=sheet.name,
+        )
+        return None
+
+    next_row = header_row + 1 if header_row + 1 <= block[1] else None
+    score, signals = score_header_row(
+        sheet, header_row, next_row, first_col, last_col, config
+    )
+    confidence = round(score, 4)
+    diagnostics.info(
+        "user-override",
+        f"Sheet '{sheet.name}': header row {header_row + 1} forced by override "
+        f"(heuristic confidence {confidence}).",
+        location=f"{sheet.name}!{range_ref(region)}",
+        confidence=confidence,
+    )
+    return DetectedTable(
+        sheet_name=sheet.name,
+        table_index=0,
+        region=region,
+        header_row=header_row,
+        confidence=confidence,
+        signals=signals,
+    )
 
 
 # --- Blocking ---------------------------------------------------------------
@@ -112,6 +193,7 @@ def _detect_in_block(
     first_row: int,
     last_row: int,
     table_index: int,
+    config: Config,
     diagnostics: Diagnostics,
 ) -> Optional[DetectedTable]:
     span = _column_span(sheet, first_row, last_row)
@@ -122,10 +204,10 @@ def _detect_in_block(
     best_row: Optional[int] = None
     best_score = -1.0
     best_signals: dict[str, float] = {}
-    limit = min(last_row, first_row + _MAX_HEADER_CANDIDATES - 1)
+    limit = min(last_row, first_row + config.max_header_candidates - 1)
     for r in range(first_row, limit + 1):
         next_row = r + 1 if r + 1 <= last_row else None
-        score, signals = score_header_row(sheet, r, next_row, first_col, last_col)
+        score, signals = score_header_row(sheet, r, next_row, first_col, last_col, config)
         if score > best_score:
             best_row, best_score, best_signals = r, score, signals
 
@@ -165,7 +247,7 @@ def _detect_in_block(
         confidence=confidence,
         signals=best_signals,
     )
-    if confidence < _LOW_CONFIDENCE:
+    if confidence < config.low_confidence_threshold:
         diagnostics.warning(
             "low-confidence-header",
             f"Sheet '{sheet.name}' table {table_index}: header row {best_row + 1} "
@@ -185,25 +267,26 @@ def score_header_row(
     next_row: Optional[int],
     first_col: int,
     last_col: int,
+    config: Config = DEFAULT_CONFIG,
 ) -> tuple[float, dict[str, float]]:
     """Score how strongly ``row`` looks like a header for the column span.
 
     Returns ``(confidence in 0..1, signals)``. This is the single most
     consequential heuristic in the system — the whole downstream pipeline trusts
     its verdict — so it is isolated here and its signals are recorded for audit.
-    Adjust the signals and weights below to change detection behaviour.
+    The signal weights live in ``config.header_weights``.
     """
     n_cols = last_col - first_col + 1
     types = [sheet.cells[row][c].type for c in range(first_col, last_col + 1)]
     values = [sheet.cells[row][c].value for c in range(first_col, last_col + 1)]
 
     non_empty = sum(t != CellType.EMPTY for t in types)
-    filled = non_empty / n_cols                       # headers are fully populated
+    filled = non_empty / n_cols  # headers are fully populated
     texty = (
         sum(t == CellType.TEXT for t in types) / non_empty if non_empty else 0.0
-    )                                                 # headers are text labels
+    )  # headers are text labels
     labels = [str(v).strip() for v, t in zip(values, types) if t != CellType.EMPTY]
-    unique = len(set(labels)) / len(labels) if labels else 0.0   # distinct labels
+    unique = len(set(labels)) / len(labels) if labels else 0.0  # distinct labels
 
     # Distinctness: the row below should look more like data (less texty).
     if next_row is not None:
@@ -225,8 +308,7 @@ def score_header_row(
         "distinct_from_next": round(distinct, 4),
     }
 
-    # Weights are the knob that shapes detection behaviour; they sum to 1.0.
-    weights = {"filled": 0.30, "texty": 0.35, "unique": 0.20, "distinct_from_next": 0.15}
+    weights = config.header_weights
     score = (
         weights["filled"] * filled
         + weights["texty"] * texty

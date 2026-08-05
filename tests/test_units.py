@@ -16,17 +16,7 @@ from excel_analysis.domain.models import (
 from excel_analysis.domain.normalizer import _canonical_names, _infer_type
 from excel_analysis.domain.profiler import _most_common, profile_dataset
 
-
-def make_grid(rows, name="S", hidden=False):
-    n_cols = max((len(r) for r in rows), default=0)
-    cells = tuple(
-        tuple(_to_raw_cell(r[c] if c < len(r) else None) for c in range(n_cols))
-        for r in rows
-    )
-    return RawSheetGrid(
-        name=name, hidden=hidden, n_rows=len(rows), n_cols=n_cols,
-        cells=cells, merged_ranges=(),
-    )
+from _helpers import make_grid
 
 
 # --- detector ---------------------------------------------------------------
