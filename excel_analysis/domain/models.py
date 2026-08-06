@@ -211,6 +211,56 @@ class Alignment:
 
 
 # ---------------------------------------------------------------------------
+# Diff layer — produced by the Comparator from two Datasets + an Alignment.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ColumnTypeChange:
+    left: str
+    right: str
+    left_type: ColumnType
+    right_type: ColumnType
+
+
+@dataclass(frozen=True)
+class CellChange:
+    column: str                      # left (canonical) column name
+    left_value: Any
+    right_value: Any
+    kind: str                        # "numeric" | "categorical" | "added" | "removed"
+    delta: Optional[float] = None    # numeric only: right - left
+    pct_change: Optional[float] = None  # numeric only: delta / left * 100
+
+
+@dataclass(frozen=True)
+class RowChange:
+    key: Optional[str]               # row key value (None when positional)
+    left_row: int
+    right_row: int
+    cells: tuple[CellChange, ...]
+
+
+@dataclass(frozen=True)
+class DiffResult:
+    # schema
+    columns_added: tuple[str, ...]
+    columns_removed: tuple[str, ...]
+    columns_renamed: tuple[tuple[str, str], ...]
+    columns_retyped: tuple[ColumnTypeChange, ...]
+    column_order_changed: bool
+    # rows
+    rows_added: int
+    rows_removed: int
+    rows_unchanged: int
+    row_changes: tuple[RowChange, ...]
+    # provenance of the row correspondence (carried from the Alignment)
+    row_basis: RowMatchBasis
+    row_key: Optional[str]
+    row_confidence: float
+
+
+# ---------------------------------------------------------------------------
 # Diagnostics — the audit trail (CLAUDE.md rule 4). Data here; the collector
 # that accumulates them lives in diagnostics.py.
 # ---------------------------------------------------------------------------
