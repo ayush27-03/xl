@@ -1,8 +1,8 @@
 """CLI — the composition root and interface layer.
 
-The one module that wires the adapters (WorkbookLoader, config loader) to the
-application pipeline and a renderer (JSON). It takes one .xlsx, builds a Config
-from optional flags/file, runs the slice, and prints the result as JSON.
+Wires the adapters (WorkbookLoader, config loader) to the application pipeline
+and a renderer (JSON). Takes one or two .xlsx workbooks, builds a Config from
+optional flags/file/selections, runs the pipeline, and prints a JSON report.
 """
 
 from __future__ import annotations
@@ -12,11 +12,24 @@ import sys
 from typing import Optional, Sequence
 
 from .adapters.config_loader import load_config_file
-from .adapters.serialization import to_json
+from .adapters.serialization import report_to_json
 from .adapters.workbook_loader import load_workbook
-from .app.pipeline import analyze
-from .domain.config import DEFAULT_CONFIG, Config, Override
+from .app.pipeline import analyze_sources
+from .domain.config import DEFAULT_CONFIG, Config, TableSelection
 from .domain.errors import AnalysisError
+from .domain.models import parse_range
+
+
+def _parse_select(spec: str) -> TableSelection:
+    """Parse a --select value: 'Sheet' or 'Sheet!A1:D10'. Raises ValueError."""
+    if "!" in spec:
+        sheet, rng = spec.split("!", 1)
+        if not sheet:
+            raise ValueError(f"invalid selection '{spec}': missing sheet name")
+        return TableSelection(sheet=sheet, region=parse_range(rng))
+    if not spec:
+        raise ValueError("invalid selection: empty sheet name")
+    return TableSelection(sheet=spec)
 
 
 def _build_config(args: argparse.Namespace) -> Config:
@@ -24,12 +37,15 @@ def _build_config(args: argparse.Namespace) -> Config:
     if args.config:
         config = config.with_overrides(load_config_file(args.config))  # default < file
     if args.min_confidence is not None:
-        config = config.with_overrides(  # file < flag
-            {"low_confidence_threshold": args.min_confidence}
-        )
+        config = config.with_overrides({"low_confidence_threshold": args.min_confidence})
+    selections: list[TableSelection] = []
     if args.sheet is not None:
         header0 = args.header - 1 if args.header is not None else None
-        config = config.with_override(Override(sheet=args.sheet, header_row=header0))
+        selections.append(TableSelection(sheet=args.sheet, header_row=header0))
+    for spec in args.select or []:
+        selections.append(_parse_select(spec))  # may raise ValueError
+    if selections:
+        config = config.with_selections(selections)
     return config
 
 
@@ -37,11 +53,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="excel-analyze",
         description=(
-            "Analyze one .xlsx workbook: detect tables and profile them. "
-            "Prints JSON to stdout."
+            "Analyze one or two .xlsx workbooks: detect tables and profile them. "
+            "Prints a JSON report to stdout."
         ),
     )
-    parser.add_argument("path", help="Path to the .xlsx workbook to analyze.")
+    parser.add_argument("paths", nargs="+", help="One or two .xlsx workbooks.")
     parser.add_argument(
         "--compact", action="store_true", help="Single-line JSON instead of indented."
     )
@@ -60,8 +76,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--header", type=int, metavar="N",
         help="Force 1-based row N as the header on --sheet (requires --sheet).",
     )
+    parser.add_argument(
+        "--select", action="append", metavar="SHEET[!A1:D10]",
+        help="Profile a specific sheet or region; repeatable.",
+    )
     args = parser.parse_args(argv)
 
+    if len(args.paths) > 2:
+        parser.error("at most two workbooks are supported")
     if args.header is not None and args.sheet is None:
         parser.error("--header requires --sheet")
     if args.header is not None and args.header < 1:
@@ -69,13 +91,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     try:
         config = _build_config(args)
-        raw = load_workbook(args.path)
-    except AnalysisError as exc:  # fatal: bad config or unreadable workbook
+    except ValueError as exc:  # malformed --select
+        parser.error(str(exc))
+    except AnalysisError as exc:  # bad config file/values
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    result = analyze(raw, config)
-    print(to_json(result, indent=None if args.compact else 2))
+    try:
+        sources = [load_workbook(p) for p in args.paths]
+    except AnalysisError as exc:  # unreadable workbook
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    report = analyze_sources(sources, config)
+    print(report_to_json(report, indent=None if args.compact else 2))
     return 0
 
 

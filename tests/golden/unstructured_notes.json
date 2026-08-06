@@ -1,0 +1,20 @@
+{
+  "source_path": "unstructured_notes.xlsx",
+  "table_count": 0,
+  "tables": [],
+  "diagnostics": [
+    {
+      "severity": "info",
+      "code": "unstructured-region",
+      "message": "Sheet 'Notes' region A1:A3 looks like free text (5.3 words/cell on average), not a table; reported, not profiled.",
+      "location": "Notes!A1:A3",
+      "confidence": 0.8889
+    },
+    {
+      "severity": "info",
+      "code": "no-tables",
+      "message": "Sheet 'Notes' contained data but no table could be located.",
+      "location": "Notes"
+    }
+  ]
+}

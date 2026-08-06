@@ -1,7 +1,7 @@
-"""Config — tunable detection/normalization parameters.
+"""Config — tunable detection/normalization parameters and table selections.
 
 Pure domain data: no I/O (a config *file* is read by an adapter, then validated
-here). The defaults reproduce the M0 behavior exactly, so existing golden
+here). The defaults reproduce the M0/M2 behavior exactly, so existing golden
 snapshots are unaffected unless a tuning value is deliberately changed.
 """
 
@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from .errors import ConfigError
+from .models import CellRange
 
 
 class UnmergePolicy(str, Enum):
@@ -28,12 +29,23 @@ _WEIGHT_KEYS = frozenset(_DEFAULT_WEIGHTS)
 
 
 @dataclass(frozen=True)
-class Override:
-    """A user instruction to pin detection. Auto-first posture: an override is
-    applied only where it targets; sheets it does not name still auto-detect."""
+class TableSelection:
+    """A user instruction to profile a specific table (M3).
 
-    sheet: Optional[str] = None
-    header_row: Optional[int] = None  # 0-based
+    Subsumes the M2 single-header override. Auto-first posture: when selections
+    are present, only the selected tables are profiled; an invalid pin degrades
+    to auto-detection on that sheet.
+
+    - sheet:      the sheet to target (required).
+    - header_row: 0-based; pin the header row (auto within the sheet if None).
+    - region:     pin the exact table region (auto-detect the sheet if None).
+    - source:     source index to target, or None for any source with this sheet.
+    """
+
+    sheet: str
+    header_row: Optional[int] = None
+    region: Optional[CellRange] = None
+    source: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -41,11 +53,12 @@ class Config:
     header_weights: dict = field(default_factory=lambda: dict(_DEFAULT_WEIGHTS))
     low_confidence_threshold: float = 0.5
     max_header_candidates: int = 5
+    unstructured_min_words: int = 3
     unmerge_policy: UnmergePolicy = UnmergePolicy.PROPAGATE_TOP_LEFT
-    override: Optional[Override] = None
+    selections: tuple = ()  # tuple[TableSelection, ...]
 
-    def with_override(self, override: Optional[Override]) -> "Config":
-        return replace(self, override=override)
+    def with_selections(self, selections: Sequence[TableSelection]) -> "Config":
+        return replace(self, selections=tuple(selections))
 
     def with_overrides(self, mapping: dict[str, Any]) -> "Config":
         """Return a new Config with recognized tuning keys overridden. Used to
@@ -54,11 +67,14 @@ class Config:
         weights = dict(self.header_weights)
         low = self.low_confidence_threshold
         candidates = self.max_header_candidates
+        min_words = self.unstructured_min_words
         for key, value in mapping.items():
             if key == "low_confidence_threshold":
                 low = _as_unit_float(value, key)
             elif key == "max_header_candidates":
                 candidates = _as_positive_int(value, key)
+            elif key == "unstructured_min_words":
+                min_words = _as_positive_int(value, key)
             elif key == "header_weights":
                 if not isinstance(value, dict):
                     raise ConfigError("'header_weights' must be a JSON object")
@@ -75,6 +91,7 @@ class Config:
             header_weights=weights,
             low_confidence_threshold=low,
             max_header_candidates=candidates,
+            unstructured_min_words=min_words,
         )
 
 

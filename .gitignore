@@ -23,3 +23,9 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local data inputs and generated analyzer outputs (never commit real data)
+/file-1.xlsx
+/file-2.xlsx
+/profile1.json
+/profile2.json

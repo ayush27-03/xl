@@ -13,6 +13,7 @@ from datetime import date, datetime
 from typing import Any
 
 from ..domain.models import (
+    AnalysisReport,
     ColumnProfile,
     DatasetProfile,
     DetectedTable,
@@ -25,6 +26,17 @@ from ..domain.models import (
 
 def to_json(result: WorkbookAnalysis, *, indent: int | None = 2) -> str:
     return json.dumps(_workbook(result), indent=indent, default=_fallback)
+
+
+def report_to_json(report: AnalysisReport, *, indent: int | None = 2) -> str:
+    return json.dumps(_report(report), indent=indent, default=_fallback)
+
+
+def _report(report: AnalysisReport) -> dict[str, Any]:
+    return {
+        "source_count": len(report.sources),
+        "sources": [_workbook(w) for w in report.sources],
+    }
 
 
 def _fallback(value: Any) -> str:

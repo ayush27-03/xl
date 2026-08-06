@@ -7,6 +7,7 @@ rule 2). Stages communicate *only* through the types defined here.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
@@ -203,6 +204,13 @@ class WorkbookAnalysis:
     diagnostics: tuple[Diagnostic, ...]
 
 
+@dataclass(frozen=True)
+class AnalysisReport:
+    """Multiple workbooks profiled together (M3 multi-source ingestion)."""
+
+    sources: tuple[WorkbookAnalysis, ...]
+
+
 # ---------------------------------------------------------------------------
 # Cell-reference helpers (pure). Kept here so any domain stage can build
 # human-readable A1 provenance without a separate utility import.
@@ -228,3 +236,28 @@ def range_ref(region: CellRange) -> str:
         f"{a1(region.first_row, region.first_col)}:"
         f"{a1(region.last_row, region.last_col)}"
     )
+
+
+_A1_RE = re.compile(r"^([A-Za-z]+)([0-9]+)$")
+
+
+def parse_a1(ref: str) -> tuple[int, int]:
+    """Parse an A1 cell reference into 0-based (row, col). Raises ValueError."""
+    match = _A1_RE.match(ref.strip())
+    if match is None:
+        raise ValueError(f"invalid cell reference '{ref}'")
+    letters, digits = match.group(1).upper(), match.group(2)
+    col = 0
+    for ch in letters:
+        col = col * 26 + (ord(ch) - 64)
+    return int(digits) - 1, col - 1
+
+
+def parse_range(ref: str) -> CellRange:
+    """Parse 'A1:D10' into a normalized CellRange. Raises ValueError."""
+    parts = ref.split(":")
+    if len(parts) != 2:
+        raise ValueError(f"invalid range '{ref}', expected 'A1:D10'")
+    r1, c1 = parse_a1(parts[0])
+    r2, c2 = parse_a1(parts[1])
+    return CellRange(min(r1, r2), max(r1, r2), min(c1, c2), max(c1, c2))

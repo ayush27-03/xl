@@ -5,26 +5,26 @@ confidence score for its header-row choice. It never assumes row 1 is the header
 or that a sheet holds exactly one table. It knows nothing about diffs, profiles,
 or Datasets (CLAUDE.md rule 1) and imports no I/O.
 
-Strategy (deliberately simple for the first slice):
+Auto path (`detect_tables`):
   1. Split the sheet into blocks of consecutive non-empty rows (blank rows are
      separators -> this is how multiple stacked tables are found).
   2. In each block, score the first few rows as header candidates and pick the
      best; rows above it are recorded as title/notes.
+  3. Single-column free-text (prose) regions are reported as `unstructured-region`
+     and NOT profiled (V1 cut; CLAUDE.md rule 5: report, don't fabricate a table).
 
-Overrides (auto-first posture): when the config pins a header row on this sheet,
-that row is forced and a `user-override` diagnostic is recorded (still with a
-heuristic confidence). An out-of-range or blank pinned row degrades to
-auto-detection with an `invalid-override` warning.
+Selection path (`detect_selection`): a user TableSelection pins a region and/or
+header row; the detector obeys it (authoritative, even over the unstructured
+cut). An invalid pin degrades to auto-detection on that sheet.
 
-Known limitation: two tables side-by-side in the same rows are not split. That
-is a future TableDetectionStrategy, not a silent wrong answer.
+Known limitation: two tables side-by-side in the same rows are not split.
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
-from .config import DEFAULT_CONFIG, Config
+from .config import DEFAULT_CONFIG, Config, TableSelection
 from .diagnostics import Diagnostics
 from .models import (
     CellRange,
@@ -39,6 +39,7 @@ from .models import (
 def detect_tables(
     sheet: RawSheetGrid, diagnostics: Diagnostics, config: Config = DEFAULT_CONFIG
 ) -> tuple[DetectedTable, ...]:
+    """Auto-detect all tables on a sheet."""
     if sheet.hidden:
         diagnostics.warning(
             "hidden-sheet",
@@ -46,17 +47,6 @@ def detect_tables(
             f"is intended.",
             location=sheet.name,
         )
-
-    override = config.override
-    if (
-        override is not None
-        and override.sheet == sheet.name
-        and override.header_row is not None
-    ):
-        forced = _forced_table(sheet, override.header_row, config, diagnostics)
-        if forced is not None:
-            return (forced,)
-        # invalid override was flagged; fall through to auto-detection.
 
     blocks = _row_blocks(sheet)
     if not blocks:
@@ -84,14 +74,31 @@ def detect_tables(
     return tuple(tables)
 
 
-# --- Overrides --------------------------------------------------------------
+def detect_selection(
+    sheet: RawSheetGrid,
+    selection: TableSelection,
+    diagnostics: Diagnostics,
+    config: Config = DEFAULT_CONFIG,
+) -> tuple[DetectedTable, ...]:
+    """Resolve a user selection into detected table(s) on this sheet. A pinned
+    region or header is authoritative; an invalid pin degrades to auto-detection.
+    """
+    if selection.region is not None:
+        forced = _forced_region(
+            sheet, selection.region, selection.header_row, config, diagnostics
+        )
+        return (forced,) if forced is not None else detect_tables(sheet, diagnostics, config)
+    if selection.header_row is not None:
+        forced = _forced_table(sheet, selection.header_row, config, diagnostics)
+        return (forced,) if forced is not None else detect_tables(sheet, diagnostics, config)
+    return detect_tables(sheet, diagnostics, config)
+
+
+# --- Pinned selections ------------------------------------------------------
 
 
 def _forced_table(
-    sheet: RawSheetGrid,
-    header_row: int,
-    config: Config,
-    diagnostics: Diagnostics,
+    sheet: RawSheetGrid, header_row: int, config: Config, diagnostics: Diagnostics
 ) -> Optional[DetectedTable]:
     if not 0 <= header_row < sheet.n_rows:
         diagnostics.warning(
@@ -102,9 +109,7 @@ def _forced_table(
         )
         return None
 
-    block = next(
-        (b for b in _row_blocks(sheet) if b[0] <= header_row <= b[1]), None
-    )
+    block = next((b for b in _row_blocks(sheet) if b[0] <= header_row <= b[1]), None)
     span = _column_span(sheet, header_row, block[1]) if block is not None else None
     if block is None or span is None:
         diagnostics.warning(
@@ -141,12 +146,60 @@ def _forced_table(
         confidence=confidence,
     )
     return DetectedTable(
-        sheet_name=sheet.name,
-        table_index=0,
-        region=region,
-        header_row=header_row,
+        sheet_name=sheet.name, table_index=0, region=region,
+        header_row=header_row, confidence=confidence, signals=signals,
+    )
+
+
+def _forced_region(
+    sheet: RawSheetGrid,
+    region: CellRange,
+    header_row: Optional[int],
+    config: Config,
+    diagnostics: Diagnostics,
+) -> Optional[DetectedTable]:
+    within = (
+        0 <= region.first_row <= region.last_row < sheet.n_rows
+        and 0 <= region.first_col <= region.last_col < sheet.n_cols
+    )
+    if not within:
+        diagnostics.warning(
+            "invalid-selection",
+            f"Selected region {range_ref(region)} is outside sheet '{sheet.name}'; "
+            f"falling back to auto-detection.",
+            location=sheet.name,
+        )
+        return None
+
+    hrow = header_row if header_row is not None else region.first_row
+    if not region.first_row <= hrow < region.last_row:
+        diagnostics.warning(
+            "invalid-selection",
+            f"Selected region {range_ref(region)} on '{sheet.name}' has no data rows "
+            f"below its header; falling back to auto-detection.",
+            location=sheet.name,
+        )
+        return None
+
+    next_row = hrow + 1
+    score, signals = score_header_row(
+        sheet, hrow, next_row, region.first_col, region.last_col, config
+    )
+    confidence = round(score, 4)
+    forced = CellRange(
+        first_row=hrow, last_row=region.last_row,
+        first_col=region.first_col, last_col=region.last_col,
+    )
+    diagnostics.info(
+        "user-selection",
+        f"Sheet '{sheet.name}': region {range_ref(forced)} selected by user "
+        f"(header row {hrow + 1}, heuristic confidence {confidence}).",
+        location=f"{sheet.name}!{range_ref(forced)}",
         confidence=confidence,
-        signals=signals,
+    )
+    return DetectedTable(
+        sheet_name=sheet.name, table_index=0, region=forced,
+        header_row=hrow, confidence=confidence, signals=signals,
     )
 
 
@@ -229,6 +282,19 @@ def _detect_in_block(
         )
         return None
 
+    is_prose, prose_confidence, mean_words = _is_unstructured(sheet, region, config)
+    if is_prose:
+        # Free text is not tabular data — report it, do not fabricate a table.
+        diagnostics.info(
+            "unstructured-region",
+            f"Sheet '{sheet.name}' region {range_ref(region)} looks like free text "
+            f"({mean_words:.1f} words/cell on average), not a table; reported, not "
+            f"profiled.",
+            location=f"{sheet.name}!{range_ref(region)}",
+            confidence=prose_confidence,
+        )
+        return None
+
     # Rows above the header inside the block are title/notes — recorded, not used.
     for r in range(first_row, best_row):
         diagnostics.info(
@@ -258,7 +324,35 @@ def _detect_in_block(
     return table
 
 
-# --- The header heuristic ---------------------------------------------------
+# --- Heuristics -------------------------------------------------------------
+
+
+def _is_unstructured(
+    sheet: RawSheetGrid, region: CellRange, config: Config
+) -> tuple[bool, float, float]:
+    """Detect a single-column free-text (prose) region.
+
+    Returns (is_prose, confidence, mean_words). Multi-column regions, or columns
+    containing any non-text cell, are considered tabular.
+    """
+    if region.n_cols != 1:
+        return False, 0.0, 0.0
+    col = region.first_col
+    word_counts: list[int] = []
+    for r in range(region.first_row, region.last_row + 1):
+        cell = sheet.cells[r][col]
+        if cell.type == CellType.TEXT:
+            word_counts.append(len(str(cell.value).split()))
+        elif cell.type != CellType.EMPTY:
+            return False, 0.0, 0.0  # a non-text cell -> looks tabular
+    if not word_counts:
+        return False, 0.0, 0.0
+
+    mean_words = sum(word_counts) / len(word_counts)
+    if mean_words < config.unstructured_min_words:
+        return False, 0.0, mean_words
+    confidence = round(min(1.0, mean_words / (2 * config.unstructured_min_words)), 4)
+    return True, confidence, mean_words
 
 
 def score_header_row(
@@ -272,23 +366,21 @@ def score_header_row(
     """Score how strongly ``row`` looks like a header for the column span.
 
     Returns ``(confidence in 0..1, signals)``. This is the single most
-    consequential heuristic in the system — the whole downstream pipeline trusts
-    its verdict — so it is isolated here and its signals are recorded for audit.
-    The signal weights live in ``config.header_weights``.
+    consequential heuristic in the system. The signal weights live in
+    ``config.header_weights``.
     """
     n_cols = last_col - first_col + 1
     types = [sheet.cells[row][c].type for c in range(first_col, last_col + 1)]
     values = [sheet.cells[row][c].value for c in range(first_col, last_col + 1)]
 
     non_empty = sum(t != CellType.EMPTY for t in types)
-    filled = non_empty / n_cols  # headers are fully populated
+    filled = non_empty / n_cols
     texty = (
         sum(t == CellType.TEXT for t in types) / non_empty if non_empty else 0.0
-    )  # headers are text labels
+    )
     labels = [str(v).strip() for v, t in zip(values, types) if t != CellType.EMPTY]
-    unique = len(set(labels)) / len(labels) if labels else 0.0  # distinct labels
+    unique = len(set(labels)) / len(labels) if labels else 0.0
 
-    # Distinctness: the row below should look more like data (less texty).
     if next_row is not None:
         next_types = [sheet.cells[next_row][c].type for c in range(first_col, last_col + 1)]
         next_non_empty = sum(t != CellType.EMPTY for t in next_types)

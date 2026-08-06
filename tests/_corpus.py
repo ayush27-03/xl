@@ -159,6 +159,15 @@ def _no_header_numeric(wb):
             ws.cell(i, j, v)
 
 
+def _unstructured_notes(wb):
+    ws = wb.active
+    ws.title = "Notes"
+    # Single column of multi-word prose -> reported as unstructured, not profiled.
+    ws["A1"] = "Internal draft - do not distribute"
+    ws["A2"] = "Reviewed by finance on Tuesday"
+    ws["A3"] = "Pending approval from the director"
+
+
 FIXTURES = {
     "simple": _simple,
     "title_and_blank": _title_and_blank,
@@ -171,6 +180,7 @@ FIXTURES = {
     "single_column": _single_column,
     "dates_and_bools": _dates_and_bools,
     "no_header_numeric": _no_header_numeric,
+    "unstructured_notes": _unstructured_notes,
 }
 
 

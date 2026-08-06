@@ -1,4 +1,4 @@
-"""Tests for the Config object and config-driven behavior (M2)."""
+"""Tests for the Config object and config-driven behavior (M2/M3)."""
 
 from __future__ import annotations
 
@@ -19,11 +19,12 @@ def test_defaults_reproduce_m0():
     c = DEFAULT_CONFIG
     assert c.low_confidence_threshold == 0.5
     assert c.max_header_candidates == 5
+    assert c.unstructured_min_words == 3
     assert c.header_weights == {
         "filled": 0.30, "texty": 0.35, "unique": 0.20, "distinct_from_next": 0.15,
     }
     assert c.unmerge_policy is UnmergePolicy.PROPAGATE_TOP_LEFT
-    assert c.override is None
+    assert c.selections == ()
 
 
 def test_with_overrides_is_immutable_and_layered():
@@ -31,14 +32,17 @@ def test_with_overrides_is_immutable_and_layered():
         {"low_confidence_threshold": 0.8, "max_header_candidates": 3}
     )
     assert (c.low_confidence_threshold, c.max_header_candidates) == (0.8, 3)
-    # original untouched
-    assert DEFAULT_CONFIG.low_confidence_threshold == 0.5
+    assert DEFAULT_CONFIG.low_confidence_threshold == 0.5  # original untouched
 
 
 def test_with_overrides_merges_weights():
     c = DEFAULT_CONFIG.with_overrides({"header_weights": {"texty": 0.5}})
     assert c.header_weights["texty"] == 0.5
     assert c.header_weights["filled"] == 0.30  # untouched keys preserved
+
+
+def test_unstructured_min_words_is_configurable():
+    assert DEFAULT_CONFIG.with_overrides({"unstructured_min_words": 5}).unstructured_min_words == 5
 
 
 @pytest.mark.parametrize(
@@ -49,6 +53,7 @@ def test_with_overrides_merges_weights():
         {"low_confidence_threshold": 1.5},
         {"max_header_candidates": "five"},
         {"max_header_candidates": 0},
+        {"unstructured_min_words": 0},
     ],
 )
 def test_invalid_overrides_raise_config_error(mapping):
