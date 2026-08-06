@@ -244,6 +244,7 @@ class RowChange:
 @dataclass(frozen=True)
 class DiffResult:
     # schema
+    columns_matched: tuple[ColumnMatch, ...]
     columns_added: tuple[str, ...]
     columns_removed: tuple[str, ...]
     columns_renamed: tuple[tuple[str, str], ...]
@@ -304,6 +305,20 @@ class AnalysisReport:
     """Multiple workbooks profiled together (M3 multi-source ingestion)."""
 
     sources: tuple[WorkbookAnalysis, ...]
+
+
+@dataclass(frozen=True)
+class AnalysisResult:
+    """The comparison contract a renderer/dashboard consumes (M6). Carries
+    everything needed to draw the comparison without recomputing anything: both
+    profiles, the full diff (schema + rows + cells + alignment provenance), the
+    warnings, and a reserved insights slot for M7."""
+
+    left_profile: DatasetProfile
+    right_profile: DatasetProfile
+    diff: DiffResult
+    warnings: tuple[Diagnostic, ...]
+    insights: tuple = ()  # reserved for M7 (tuple[Insight, ...])
 
 
 # ---------------------------------------------------------------------------

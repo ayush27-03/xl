@@ -67,6 +67,7 @@ def compare(
             unchanged += 1
 
     return DiffResult(
+        columns_matched=alignment.column_matches,
         columns_added=alignment.columns_only_in_right,
         columns_removed=alignment.columns_only_in_left,
         columns_renamed=renamed,

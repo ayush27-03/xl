@@ -18,3 +18,7 @@ class WorkbookLoadError(AnalysisError):
 
 class ConfigError(AnalysisError):
     """A configuration file or option was invalid."""
+
+
+class NoTableError(AnalysisError):
+    """No table could be found in a workbook to profile or compare."""

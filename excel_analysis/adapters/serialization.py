@@ -14,10 +14,16 @@ from typing import Any
 
 from ..domain.models import (
     AnalysisReport,
+    AnalysisResult,
+    CellChange,
+    ColumnMatch,
     ColumnProfile,
+    ColumnTypeChange,
     DatasetProfile,
     DetectedTable,
     Diagnostic,
+    DiffResult,
+    RowChange,
     TableAnalysis,
     WorkbookAnalysis,
     range_ref,
@@ -37,6 +43,75 @@ def _report(report: AnalysisReport) -> dict[str, Any]:
         "source_count": len(report.sources),
         "sources": [_workbook(w) for w in report.sources],
     }
+
+
+def analysis_to_json(result: AnalysisResult, *, indent: int | None = 2) -> str:
+    return json.dumps(_analysis(result), indent=indent, default=_fallback)
+
+
+def _analysis(r: AnalysisResult) -> dict[str, Any]:
+    return {
+        "comparison": _diff(r.diff),
+        "left_profile": _profile(r.left_profile),
+        "right_profile": _profile(r.right_profile),
+        "warnings": [_diagnostic(d) for d in r.warnings],
+        "insights": list(r.insights),  # reserved for M7
+    }
+
+
+def _diff(d: DiffResult) -> dict[str, Any]:
+    return {
+        "alignment": {
+            "row_basis": d.row_basis.value,
+            "row_key": d.row_key,
+            "row_confidence": d.row_confidence,
+        },
+        "schema": {
+            "matched": [_column_match(m) for m in d.columns_matched],
+            "added": list(d.columns_added),
+            "removed": list(d.columns_removed),
+            "retyped": [_type_change(t) for t in d.columns_retyped],
+            "order_changed": d.column_order_changed,
+        },
+        "rows": {
+            "changed": len(d.row_changes),
+            "unchanged": d.rows_unchanged,
+            "added": d.rows_added,
+            "removed": d.rows_removed,
+            "changes": [_row_change(rc) for rc in d.row_changes],
+        },
+    }
+
+
+def _column_match(m: ColumnMatch) -> dict[str, Any]:
+    return {"left": m.left, "right": m.right, "basis": m.basis.value, "confidence": m.confidence}
+
+
+def _type_change(t: ColumnTypeChange) -> dict[str, Any]:
+    return {"left": t.left, "right": t.right, "from": t.left_type.value, "to": t.right_type.value}
+
+
+def _row_change(rc: RowChange) -> dict[str, Any]:
+    return {
+        "key": rc.key,
+        "left_row": rc.left_row,
+        "right_row": rc.right_row,
+        "cells": [_cell(c) for c in rc.cells],
+    }
+
+
+def _cell(c: CellChange) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "column": c.column,
+        "before": _scalar(c.left_value),
+        "after": _scalar(c.right_value),
+        "kind": c.kind,
+    }
+    if c.delta is not None:
+        item["delta"] = c.delta
+    if c.pct_change is not None:
+        item["pct_change"] = c.pct_change
+    return item
 
 
 def _fallback(value: Any) -> str:

@@ -22,7 +22,13 @@ def test_non_xlsx_content_raises_workbook_load_error(tmp_path):
         load_workbook(str(bogus))
 
 
-def test_cli_missing_file_exits_2_with_message(capsys):
-    rc = main(["definitely_does_not_exist_12345.xlsx"])
+def test_cli_profile_missing_file_exits_2_with_message(capsys):
+    rc = main(["profile", "definitely_does_not_exist_12345.xlsx"])
+    assert rc == 2
+    assert "error:" in capsys.readouterr().err
+
+
+def test_cli_compare_missing_file_exits_2(capsys):
+    rc = main(["compare", "no_left_9999.xlsx", "no_right_9999.xlsx"])
     assert rc == 2
     assert "error:" in capsys.readouterr().err

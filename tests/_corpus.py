@@ -195,3 +195,41 @@ def build_all(dest_dir: str) -> dict[str, str]:
         wb.save(path)
         paths[name] = path
     return paths
+
+
+# --- Synthetic compare pair (M6): a keyed diff exercising every field --------
+# Mirrors the real file-1/file-2 shape (matched/added/removed/retyped columns,
+# numeric + categorical changes, a quiet date<->text retype, added/removed rows)
+# so a committed golden needs no gitignored real data.
+
+
+def _compare_left(wb):
+    ws = wb.active
+    ws.title = "Pay"
+    ws.append(["Emp_ID", "Name", "Salary", "City", "DoB", "ExitReason"])
+    ws.append([1, "Alice", 100, "London", datetime(1990, 1, 1), ""])
+    ws.append([2, "Bob", 200, "Paris", datetime(1991, 2, 2), ""])
+    ws.append([3, "Carol", 300, "Rome", datetime(1992, 3, 3), ""])
+    ws.append([4, "Dave", 400, "Berlin", datetime(1993, 4, 4), "resigned"])
+
+
+def _compare_right(wb):
+    ws = wb.active
+    ws.title = "Pay"
+    ws.append(["Emp_ID", "Name", "Salary", "City", "DoB", "Bonus"])
+    ws.append([2, "Bob", 220, "Paris", "1991-02-02", 10])   # Salary +10%
+    ws.append([3, "Carol", 300, "Turin", "1992-03-03", 20]) # City change
+    ws.append([4, "Dave", 400, "Berlin", "1993-04-04", 30]) # unchanged
+    ws.append([5, "Eve", 500, "Madrid", "1994-05-05", 40])  # added row
+
+
+def build_compare_pair(dest_dir: str) -> dict[str, str]:
+    os.makedirs(dest_dir, exist_ok=True)
+    paths: dict[str, str] = {}
+    for name, builder in [("compare_left", _compare_left), ("compare_right", _compare_right)]:
+        wb = openpyxl.Workbook()
+        builder(wb)
+        path = os.path.join(dest_dir, f"{name}.xlsx")
+        wb.save(path)
+        paths[name] = path
+    return paths
