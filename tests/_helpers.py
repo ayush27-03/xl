@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 from excel_analysis.adapters.workbook_loader import _to_raw_cell
-from excel_analysis.domain.models import RawSheetGrid, RawWorkbook
+from excel_analysis.domain.models import (
+    Column,
+    ColumnProvenance,
+    ColumnType,
+    Dataset,
+    DatasetProvenance,
+    RawSheetGrid,
+    RawWorkbook,
+)
 
 
 def make_grid(rows, name="S", hidden=False, merges=()):
@@ -21,3 +29,19 @@ def make_grid(rows, name="S", hidden=False, merges=()):
 
 def make_workbook(sheets, path="mem.xlsx"):
     return RawWorkbook(path=path, sheets=tuple(sheets))
+
+
+def col(name, values, ctype=ColumnType.TEXT):
+    """Build a Dataset Column directly from a list of values."""
+    return Column(
+        name=name, type=ctype, values=tuple(values),
+        provenance=ColumnProvenance(sheet_name="S", source_column=0, header_cell="A1"),
+    )
+
+
+def dataset(columns, name="S!A1:A9"):
+    n = len(columns[0].values) if columns else 0
+    return Dataset(
+        name=name, columns=tuple(columns), n_rows=n,
+        provenance=DatasetProvenance(sheet_name="S", region_ref="A1:A9", header_row=0),
+    )

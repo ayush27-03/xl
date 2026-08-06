@@ -166,6 +166,51 @@ class DatasetProfile:
 
 
 # ---------------------------------------------------------------------------
+# Alignment layer — produced by the Aligner. How two Datasets correspond,
+# column-to-column and row-to-row, with the basis and a confidence (rule 4).
+# ---------------------------------------------------------------------------
+
+
+class ColumnMatchBasis(str, Enum):
+    EXACT = "exact"
+    NORMALIZED = "normalized"
+
+
+class RowMatchBasis(str, Enum):
+    KEY = "key"
+    POSITION = "position"
+    NONE = "none"
+
+
+@dataclass(frozen=True)
+class ColumnMatch:
+    left: str            # column name in the left Dataset
+    right: str           # column name in the right Dataset
+    basis: ColumnMatchBasis
+    confidence: float
+
+
+@dataclass(frozen=True)
+class RowMatch:
+    left_row: int        # 0-based row index into the left Dataset
+    right_row: int       # 0-based row index into the right Dataset
+    key: Optional[str] = None   # normalized key value when matched by key
+
+
+@dataclass(frozen=True)
+class Alignment:
+    column_matches: tuple[ColumnMatch, ...]
+    columns_only_in_left: tuple[str, ...]
+    columns_only_in_right: tuple[str, ...]
+    row_basis: RowMatchBasis
+    row_key: Optional[str]          # key column name when row_basis is KEY
+    row_confidence: float
+    row_matches: tuple[RowMatch, ...]
+    rows_only_in_left: tuple[int, ...]
+    rows_only_in_right: tuple[int, ...]
+
+
+# ---------------------------------------------------------------------------
 # Diagnostics — the audit trail (CLAUDE.md rule 4). Data here; the collector
 # that accumulates them lives in diagnostics.py.
 # ---------------------------------------------------------------------------
