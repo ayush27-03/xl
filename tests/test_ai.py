@@ -44,20 +44,52 @@ def test_prompt_is_restate_only_and_carries_facts(compare_pair):
 # --- restate-only guard -----------------------------------------------------
 
 
-def test_guard_passes_reordered_facts():
+def test_guard_allows_lowercase_paraphrase():
+    # lowercase verbs/glue are free; only numbers and cap/quoted names are checked
     assert passes_guard("For Salary, 3 rows changed.", "Salary changed in 3 rows.")
+    assert passes_guard("Salary increased notably across rows.", "Salary changed across rows.")
 
 
 def test_guard_rejects_a_new_number():
     assert not passes_guard("Salary changed in 5 rows.", "Salary changed in 3 rows.")
 
 
-def test_guard_rejects_an_invented_token():
-    assert not passes_guard("Bonus changed.", "Salary changed.")
+def test_guard_rejects_a_number_with_the_wrong_unit():
+    assert not passes_guard(
+        "Largest change was +40.0%.",
+        "Largest change was +40.0 and percent change was +10.0%.",
+    )
 
 
-def test_guard_tolerates_plural_forms():
-    assert passes_guard("1 column changed.", "1 columns changed.")
+def test_guard_normalizes_spelled_out_numbers():
+    assert passes_guard("Salary changed in three rows.", "Salary changed in 3 rows.")
+
+
+def test_guard_rejects_a_wrong_spelled_out_number():
+    assert not passes_guard("Salary changed in seven rows.", "Salary changed in 3 rows.")
+
+
+def test_guard_rejects_an_invented_quoted_column():
+    assert not passes_guard("Bonus changed in the 'Overtime' column.", "Bonus changed.")
+
+
+def test_guard_rejects_an_invented_midsentence_column():
+    assert not passes_guard("Both Salary and Overtime changed.", "Salary changed.")
+
+
+def test_guard_rejects_an_expanded_column_name():
+    assert not passes_guard("The Date of Birth column changed.", "DoB changed.")
+
+
+def test_guard_allows_a_real_midsentence_column():
+    assert passes_guard("Both Salary and City changed.", "Salary changed. City changed.")
+
+
+def test_guard_accepts_a_faithful_bullet(compare_pair):
+    r = _result(compare_pair)
+    facts = build_facts(r.insights, r.warnings)
+    # real numbers (10.0, three->3) and a real column (Salary), paraphrased
+    assert passes_guard("Salary increased by 10.0% across three matched rows.", facts)
 
 
 # --- Ollama adapter, hermetic (HTTP monkeypatched, never a live model) -------
