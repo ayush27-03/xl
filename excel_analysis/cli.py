@@ -138,11 +138,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     pc.add_argument(
         "--ai", action="store_true",
-        help="Add a local-AI narrative to the HTML report (needs --ai-model and a running Ollama).",
+        help="Add a local-AI narrative to the HTML report (needs a running Ollama; see --ai-model).",
     )
     pc.add_argument(
-        "--ai-model", metavar="MODEL",
-        help="Local Ollama model for --ai (a name from `ollama list`). No default; AI is opt-in.",
+        "--ai-model", metavar="MODEL", default="llama3.2",
+        help="Local Ollama model for --ai (default: llama3.2; any name from `ollama list`).",
     )
 
     args = parser.parse_args(argv)
@@ -155,8 +155,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if args.header is not None and args.header < 1:
             parser.error("--header must be >= 1")
         return _run_profile(args)
-    if args.ai and not args.ai_model:
-        parser.error("--ai requires --ai-model MODEL (use a name from `ollama list`)")
     return _run_compare(args)
 
 
