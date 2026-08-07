@@ -71,13 +71,9 @@ def render_html(result: AnalysisResult) -> str:
         (i for i, b in enumerate(blocks) if isinstance(b, Heading) and b.level == 2),
         len(blocks),
     )
-    body = (
-        '<div class="report">'
-        + _header(blocks[:split])
-        + _AI_SUMMARY
-        + _cards(blocks[split:])
-        + "</div>"
-    )
+    cards = _cards(blocks[split:])
+    cards.insert(1, _AI_SUMMARY)  # AI summary sits just below Key findings
+    body = '<div class="report">' + _header(blocks[:split]) + "".join(cards) + "</div>"
     return _TEMPLATE.replace("{{BODY}}", body)
 
 
@@ -93,7 +89,7 @@ def _header(blocks: list) -> str:
     return f'<header class="report-header">{"".join(parts)}</header>'
 
 
-def _cards(blocks: list) -> str:
+def _cards(blocks: list) -> list[str]:
     out: list[str] = []
     current: list = []
     for b in blocks:
@@ -104,7 +100,7 @@ def _cards(blocks: list) -> str:
             current.append(b)
     if current:
         out.append(_card(current))
-    return "".join(out)
+    return out
 
 
 def _card(blocks: list) -> str:
