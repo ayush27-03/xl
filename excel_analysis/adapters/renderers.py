@@ -10,6 +10,7 @@ from __future__ import annotations
 import html as _html
 
 from ..domain.models import AnalysisResult
+from .ai import AiSummary
 from .report import Block, Bullets, Callout, Heading, Table, Text, build_report
 
 _CALLOUT_LABEL = {"integrity": "Integrity", "warning": "Warning", "info": "Note"}
@@ -56,7 +57,7 @@ def _md_cell(s: str) -> str:
 _STRUCTURAL_HEADERS = ("Change", "Columns")
 _CHANGES_HEADERS = ("Record", "Column", "Before", "After", "Delta", "% change")
 
-_AI_SUMMARY = (
+_AI_PLACEHOLDER = (
     '<section class="card ai-summary" aria-label="AI summary">'
     "<h2>AI Summary</h2>"
     '<p class="placeholder">Not generated. Enable the optional AI provider to include a '
@@ -65,16 +66,35 @@ _AI_SUMMARY = (
 )
 
 
-def render_html(result: AnalysisResult) -> str:
+def render_html(result: AnalysisResult, ai: AiSummary = AiSummary(False, ())) -> str:
     blocks = build_report(result)
     split = next(
         (i for i, b in enumerate(blocks) if isinstance(b, Heading) and b.level == 2),
         len(blocks),
     )
     cards = _cards(blocks[split:])
-    cards.insert(1, _AI_SUMMARY)  # AI summary sits just below Key findings
+    cards.insert(1, _ai_card(ai, result))  # AI summary sits just below Key findings
     body = '<div class="report">' + _header(blocks[:split]) + "".join(cards) + "</div>"
     return _TEMPLATE.replace("{{BODY}}", body)
+
+
+def _ai_card(ai: AiSummary, result: AnalysisResult) -> str:
+    if not ai.requested:
+        return _AI_PLACEHOLDER
+    if ai.bullets:
+        items = "".join(f"<li>{_esc(b)}</li>" for b in ai.bullets)
+        return (
+            '<section class="card ai-summary ready" aria-label="AI summary"><h2>AI Summary</h2>'
+            '<p class="ai-note">AI-generated from the findings above; the verified findings '
+            "remain the source of truth.</p>"
+            f"<ul>{items}</ul></section>"
+        )
+    items = "".join(f"<li>{_esc(i.message)}</li>" for i in result.insights)
+    return (
+        '<section class="card ai-summary" aria-label="AI summary"><h2>AI Summary</h2>'
+        '<p class="placeholder">AI summary unavailable - showing the verified findings.</p>'
+        f"<ul>{items}</ul></section>"
+    )
 
 
 def _header(blocks: list) -> str:
@@ -218,6 +238,9 @@ li { margin:.3rem 0; }
 .ai-summary { border-style:dashed; background:transparent; }
 .ai-summary h2 { color:var(--muted); border-bottom-color:transparent; margin-bottom:.3rem; }
 .ai-summary .placeholder { color:var(--faint); font-style:italic; margin:0; }
+.ai-summary.ready { border-style:solid; }
+.ai-summary.ready h2 { color:var(--accent); border-bottom-color:var(--line); }
+.ai-note { color:var(--muted); font-style:italic; font-size:.85rem; margin:0 0 .4rem; }
 .callout {
   display:flex; gap:.75rem; align-items:baseline; margin:.65rem 0;
   padding:.8rem 1rem; border:1px solid var(--line); border-left-width:4px; border-radius:6px;

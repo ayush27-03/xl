@@ -13,6 +13,7 @@ import argparse
 import sys
 from typing import Optional, Sequence
 
+from .adapters.ai import AiSummary, OllamaAIProvider
 from .adapters.config_loader import load_config_file
 from .adapters.renderers import render_html, render_markdown
 from .adapters.serialization import analysis_to_json, report_to_json
@@ -92,10 +93,19 @@ def _run_compare(args: argparse.Namespace) -> int:
     if args.format == "md":
         print(render_markdown(result))
     elif args.format == "html":
-        print(render_html(result))
+        print(render_html(result, _narration(args, result)))
     else:
         print(analysis_to_json(result, indent=None if args.compact else 2))
     return 0
+
+
+def _narration(args: argparse.Namespace, result) -> AiSummary:
+    """Compute the optional local-AI narrative (HTML only). Off by default; any
+    failure/unavailability yields empty bullets and the report falls back."""
+    if not args.ai:
+        return AiSummary(requested=False, bullets=())
+    provider = OllamaAIProvider(model=args.ai_model)
+    return AiSummary(requested=True, bullets=provider.narrate(result.insights, result.warnings))
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -126,6 +136,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--format", choices=["md", "html", "json"], default="json",
         help="Output format (default: json).",
     )
+    pc.add_argument(
+        "--ai", action="store_true",
+        help="Add a local-AI narrative to the HTML report (needs --ai-model and a running Ollama).",
+    )
+    pc.add_argument(
+        "--ai-model", metavar="MODEL",
+        help="Local Ollama model for --ai (a name from `ollama list`). No default; AI is opt-in.",
+    )
 
     args = parser.parse_args(argv)
 
@@ -137,6 +155,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if args.header is not None and args.header < 1:
             parser.error("--header must be >= 1")
         return _run_profile(args)
+    if args.ai and not args.ai_model:
+        parser.error("--ai requires --ai-model MODEL (use a name from `ollama list`)")
     return _run_compare(args)
 
 
