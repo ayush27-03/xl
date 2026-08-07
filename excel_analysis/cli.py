@@ -14,6 +14,7 @@ import sys
 from typing import Optional, Sequence
 
 from .adapters.config_loader import load_config_file
+from .adapters.renderers import render_html, render_markdown
 from .adapters.serialization import analysis_to_json, report_to_json
 from .adapters.workbook_loader import load_workbook
 from .app.pipeline import analyze_sources, compare_workbooks
@@ -88,11 +89,20 @@ def _run_compare(args: argparse.Namespace) -> int:
     except AnalysisError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    print(analysis_to_json(result, indent=None if args.compact else 2))
+    if args.format == "md":
+        print(render_markdown(result))
+    elif args.format == "html":
+        print(render_html(result))
+    else:
+        print(analysis_to_json(result, indent=None if args.compact else 2))
     return 0
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")  # md/html may carry non-ASCII data
+    except Exception:
+        pass
     parser = argparse.ArgumentParser(
         prog="excel-analyze",
         description="Detect, profile, and compare tables in .xlsx workbooks.",
@@ -112,6 +122,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     _add_common(pc)
     pc.add_argument("--left-sheet", help="Sheet to use in LEFT (default: largest table).")
     pc.add_argument("--right-sheet", help="Sheet to use in RIGHT (default: largest table).")
+    pc.add_argument(
+        "--format", choices=["md", "html", "json"], default="json",
+        help="Output format (default: json).",
+    )
 
     args = parser.parse_args(argv)
 
