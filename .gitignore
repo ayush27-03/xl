@@ -31,3 +31,5 @@ Thumbs.db
 /profile2.json
 /diff-dump.json
 /report.html
+
+node_modules
