@@ -22,6 +22,7 @@ from .diagnostics import Diagnostics
 from .models import (
     Alignment,
     CellChange,
+    ColumnType,
     ColumnTypeChange,
     Dataset,
     DiffResult,
@@ -58,6 +59,8 @@ def compare(
                 lname,
                 left_cols[lname].values[rm.left_row],
                 right_cols[rname].values[rm.right_row],
+                left_cols[lname].type,
+                right_cols[rname].type,
             )
             if change is not None:
                 cells.append(change)
@@ -145,7 +148,9 @@ def _canonical(value: Any):
     return ("t", s)
 
 
-def _cell_change(column: str, a: Any, b: Any) -> Optional[CellChange]:
+def _cell_change(
+    column: str, a: Any, b: Any, left_type: ColumnType, right_type: ColumnType
+) -> Optional[CellChange]:
     ca, cb = _canonical(a), _canonical(b)
     if ca == cb:
         return None                              # type-aware equality
@@ -153,7 +158,11 @@ def _cell_change(column: str, a: Any, b: Any) -> Optional[CellChange]:
         return CellChange(column, a, b, "added")
     if cb is None:
         return CellChange(column, a, b, "removed")
-    if ca[0] == "n" and cb[0] == "n":
+    # A numeric delta is only meaningful for a genuine quantity column. A
+    # numeric-looking identifier (e.g. a bank-account number stored as text) is
+    # a categorical change, not a delta of a quadrillion.
+    is_quantity = ColumnType.NUMBER in (left_type, right_type)
+    if is_quantity and ca[0] == "n" and cb[0] == "n":
         delta = cb[1] - ca[1]
         pct = (delta / ca[1] * 100.0) if ca[1] != 0 else None
         return CellChange(

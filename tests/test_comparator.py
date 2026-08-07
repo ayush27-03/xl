@@ -67,16 +67,17 @@ def test_number_vs_numeric_text_is_not_a_cell_change():
     assert d.row_changes == ()
 
 
-def test_long_numeric_identifiers_do_not_collide_under_float():
+def test_long_numeric_identifiers_are_categorical_not_a_delta():
     # Premise: these 17-digit ids round to the SAME float.
     assert float("12345678901234567") == float("12345678901234568")
-    # Exact-int canonicalization must still see them as different (no false match).
+    # A TEXT identifier column: still detected as changed (exact-int canon, no
+    # false match), but reported categorically - never a numeric delta.
     left = dataset([col("ID", [1], N), col("Acct", ["12345678901234567"])])
     right = dataset([col("ID", [1], N), col("Acct", ["12345678901234568"])])
     d = _diff(left, right)
     assert len(d.row_changes) == 1
     cell = d.row_changes[0].cells[0]
-    assert cell.kind == "numeric" and cell.delta == 1.0
+    assert cell.kind == "categorical" and cell.delta is None
 
 
 # --- Cell variance ----------------------------------------------------------

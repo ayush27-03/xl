@@ -217,10 +217,10 @@ def _compare_right(wb):
     ws = wb.active
     ws.title = "Pay"
     ws.append(["Emp_ID", "Name", "Salary", "City", "DoB", "Bonus"])
-    ws.append([2, "Bob", 220, "Paris", "1991-02-02", 10])   # Salary +10%
-    ws.append([3, "Carol", 300, "Turin", "1992-03-03", 20]) # City change
-    ws.append([4, "Dave", 400, "Berlin", "1993-04-04", 30]) # unchanged
-    ws.append([5, "Eve", 500, "Madrid", "1994-05-05", 40])  # added row
+    ws.append([2, "Bob", 220, "Paris", "1991-02-02", 10])    # Salary +10%; DoB quiet
+    ws.append([3, "Carol", 330, "Turin", "1991-02-02", 20])  # Salary +10%; City change; DoB shifted (defect)
+    ws.append([4, "Dave", 440, "Berlin", "1993-04-04", 30])  # Salary +10%; DoB quiet
+    ws.append([5, "Eve", 550, "Madrid", "1994-05-05", 40])   # added row
 
 
 def build_compare_pair(dest_dir: str) -> dict[str, str]:

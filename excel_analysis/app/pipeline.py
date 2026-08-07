@@ -20,6 +20,7 @@ from ..domain.config import DEFAULT_CONFIG, Config
 from ..domain.detector import detect_selection, detect_tables
 from ..domain.diagnostics import Diagnostics
 from ..domain.errors import NoTableError
+from ..domain.insight_engine import generate_insights
 from ..domain.models import (
     AnalysisReport,
     AnalysisResult,
@@ -103,7 +104,7 @@ def compare_workbooks(
         right_profile=profile_dataset(right_ds),
         diff=diff,
         warnings=diagnostics.to_tuple(),
-        insights=(),
+        insights=generate_insights(diff),
     )
 
 

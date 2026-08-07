@@ -55,8 +55,8 @@
       "order_changed": false
     },
     "rows": {
-      "changed": 2,
-      "unchanged": 1,
+      "changed": 3,
+      "unchanged": 0,
       "added": 1,
       "removed": 1,
       "changes": [
@@ -81,10 +81,39 @@
           "right_row": 1,
           "cells": [
             {
+              "column": "Salary",
+              "before": 300,
+              "after": 330,
+              "kind": "numeric",
+              "delta": 30.0,
+              "pct_change": 10.0
+            },
+            {
               "column": "City",
               "before": "Rome",
               "after": "Turin",
               "kind": "categorical"
+            },
+            {
+              "column": "DoB",
+              "before": "1992-03-03T00:00:00",
+              "after": "1991-02-02",
+              "kind": "categorical"
+            }
+          ]
+        },
+        {
+          "key": "4",
+          "left_row": 3,
+          "right_row": 2,
+          "cells": [
+            {
+              "column": "Salary",
+              "before": 400,
+              "after": 440,
+              "kind": "numeric",
+              "delta": 40.0,
+              "pct_change": 10.0
             }
           ]
         }
@@ -230,9 +259,9 @@
         "unique_count": 4,
         "stats": {
           "min": 220.0,
-          "max": 500.0,
-          "mean": 355.0,
-          "sum": 1420.0
+          "max": 550.0,
+          "mean": 385.0,
+          "sum": 1540.0
         }
       },
       {
@@ -257,13 +286,13 @@
         "count": 4,
         "null_count": 0,
         "non_null_count": 4,
-        "unique_count": 4,
+        "unique_count": 3,
         "stats": {
           "min_length": 10,
           "max_length": 10,
           "most_common": {
             "value": "1991-02-02",
-            "count": 1
+            "count": 2
           }
         }
       },
@@ -306,5 +335,76 @@
       "message": "Column 'DoB' changed type date -> text."
     }
   ],
-  "insights": []
+  "insights": [
+    {
+      "code": "retyped-columns-changed",
+      "severity": "integrity",
+      "message": "1 column(s) changed type AND differ across rows - verify these are real changes, not a shift or formatting artifact: DoB (date->text, 1/3 rows changed).",
+      "evidence": [
+        "columns_retyped:DoB date->text; changed 1/3"
+      ]
+    },
+    {
+      "code": "columns-removed",
+      "severity": "structural",
+      "message": "1 column(s) dropped in the right table: ExitReason.",
+      "evidence": [
+        "columns_removed=['ExitReason']"
+      ]
+    },
+    {
+      "code": "columns-added",
+      "severity": "structural",
+      "message": "1 column(s) added in the right table: Bonus.",
+      "evidence": [
+        "columns_added=['Bonus']"
+      ]
+    },
+    {
+      "code": "roster-change",
+      "severity": "structural",
+      "message": "Roster changed: 1 row(s) added, 1 removed (new / departed records).",
+      "evidence": [
+        "rows_added=1",
+        "rows_removed=1"
+      ]
+    },
+    {
+      "code": "systematic-change",
+      "severity": "variance",
+      "message": "1 column(s) changed in every one of the 3 matched rows (a systematic change, e.g. a revised run): Salary (e.g. Salary: 200 -> 220, +10.0%).",
+      "evidence": [
+        "changed_in_all_rows:Salary (3/3)"
+      ]
+    },
+    {
+      "code": "overall-change-summary",
+      "severity": "variance",
+      "message": "3 of 3 matched rows changed; 5 cell difference(s) across 3 column(s).",
+      "evidence": [
+        "row_changes=3",
+        "rows_unchanged=0",
+        "total_cell_changes=5",
+        "columns_changed=3"
+      ]
+    },
+    {
+      "code": "most-changed-columns",
+      "severity": "variance",
+      "message": "Most-changed columns (by rows affected): Salary (3), City (1), DoB (1).",
+      "evidence": [
+        "changes:Salary=3",
+        "changes:City=1",
+        "changes:DoB=1"
+      ]
+    },
+    {
+      "code": "largest-numeric-change",
+      "severity": "variance",
+      "message": "Largest single numeric change: Salary 400 -> 440 (delta +40.0, +10.0%).",
+      "evidence": [
+        "cell:Salary delta=40.0 pct=10.0"
+      ]
+    }
+  ]
 }

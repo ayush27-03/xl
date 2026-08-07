@@ -23,6 +23,7 @@ from ..domain.models import (
     DetectedTable,
     Diagnostic,
     DiffResult,
+    Insight,
     RowChange,
     TableAnalysis,
     WorkbookAnalysis,
@@ -55,7 +56,16 @@ def _analysis(r: AnalysisResult) -> dict[str, Any]:
         "left_profile": _profile(r.left_profile),
         "right_profile": _profile(r.right_profile),
         "warnings": [_diagnostic(d) for d in r.warnings],
-        "insights": list(r.insights),  # reserved for M7
+        "insights": [_insight(i) for i in r.insights],
+    }
+
+
+def _insight(i: Insight) -> dict[str, Any]:
+    return {
+        "code": i.code,
+        "severity": i.severity.value,
+        "message": i.message,
+        "evidence": list(i.evidence),
     }
 
 

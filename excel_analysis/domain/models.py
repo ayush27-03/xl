@@ -307,18 +307,37 @@ class AnalysisReport:
     sources: tuple[WorkbookAnalysis, ...]
 
 
+class InsightSeverity(str, Enum):
+    INTEGRITY = "integrity"     # data-integrity defects — ranked highest
+    STRUCTURAL = "structural"   # schema / roster changes
+    VARIANCE = "variance"       # routine value changes
+    INFO = "info"
+
+
+@dataclass(frozen=True)
+class Insight:
+    """A ranked, human-readable observation that RESTATES facts already in the
+    diff — it never computes a new number. `evidence` lists the facts it draws
+    on, for traceability."""
+
+    code: str
+    severity: InsightSeverity
+    message: str
+    evidence: tuple[str, ...]
+
+
 @dataclass(frozen=True)
 class AnalysisResult:
-    """The comparison contract a renderer/dashboard consumes (M6). Carries
-    everything needed to draw the comparison without recomputing anything: both
-    profiles, the full diff (schema + rows + cells + alignment provenance), the
-    warnings, and a reserved insights slot for M7."""
+    """The comparison contract a renderer/dashboard consumes. Carries everything
+    needed to draw the comparison without recomputing anything: both profiles,
+    the full diff (schema + rows + cells + alignment provenance), the warnings,
+    and ranked insights (M7)."""
 
     left_profile: DatasetProfile
     right_profile: DatasetProfile
     diff: DiffResult
     warnings: tuple[Diagnostic, ...]
-    insights: tuple = ()  # reserved for M7 (tuple[Insight, ...])
+    insights: tuple[Insight, ...] = ()
 
 
 # ---------------------------------------------------------------------------
