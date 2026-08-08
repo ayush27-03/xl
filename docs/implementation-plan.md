@@ -274,3 +274,23 @@ Answer these **before** the milestone starts, not during:
 - Are unstructured regions formally cut from V1? → **gates M3** selection
   semantics.
 - Which human renderer is the V1 priority (Markdown vs. HTML)? → **gates M8**.
+
+---
+
+## Web layer (delivered post-M8; V1, internal single-machine tool)
+
+Beyond the M0–M10 plan, an optional web front-end shipped: a **FastAPI adapter**
+(`excel_analysis/api.py`) and a **React/Vite/Tailwind SPA** (`frontend/`) — the
+"GUI over the same library API" the roadmap placed at V2+, brought forward for an
+**internal, single-machine team** (not a hosted product; no auth/DB/cloud).
+
+| Aspect | How it holds the line |
+|---|---|
+| **Contract reuse** | API returns the existing `AnalysisResult` (via `compare_workbooks` → `analysis_to_json`) under `{ metadata, analysis }`; the SPA types mirror it and render verbatim. Recomputes nothing. |
+| **Determinism** | Domain/pipeline untouched and AI-free; JSON/Markdown goldens unchanged. Byte-identical-with-AI-off preserved. |
+| **Local-only** | API binds `127.0.0.1` (`run()`); a middleware 403s non-loopback peers even under `--host 0.0.0.0`; uploads are size-capped → 413 before openpyxl. Runtime match to the data-hygiene stance. |
+| **Opt-in AI** | SPA toggle (off by default) requests a local-Ollama narrative; the API runs the **same restate-only guard server-side** and returns validated bullets as a separate `ai_summary` field — never inside `AnalysisResult`. Rejection/unavailable → deterministic-insights fallback. |
+| **Tests** | `tests/test_api.py` covers the happy path, non-xlsx rejection, oversized-upload 413, loopback enforcement, and the opt-in AI wiring (off by default, validated-bullets, and rejection fallback). Frontend is `npm`-built, not in the pytest suite. |
+
+Scope is unchanged from §Scope: still not a distributed system, SaaS, multi-user,
+or authenticated service.

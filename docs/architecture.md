@@ -451,3 +451,39 @@ These are genuine judgment calls where your domain knowledge changes the design 
 5. **First renderer** — which single output format is the V1 priority (CLI table, Markdown, HTML, or JSON)? That's the one we build first.
 
 Want me to turn any of this into a formal **ADR** (e.g., "ADR-001: Structural reader over `pandas.read_excel`" and "ADR-002: Deterministic core with a null AI port"), or render the layer + data-flow diagrams as a shareable visual artifact? I'd hold off on directory structure and interfaces until you've weighed in on the five decisions above — they move real walls.
+
+---
+
+## Addendum — Web layer (added after M8; V1, internal single-machine tool)
+
+The tool now ships an optional **web front-end** alongside the CLI: a **FastAPI
+adapter** (`excel_analysis/api.py`) and a **React/Vite/Tailwind SPA**
+(`frontend/`). This is the "GUI over the same library API" foreshadowed in §14
+("V2+"), delivered early for an **internal, single-machine team** — explicitly
+**not** a hosted or multi-user product (no auth, no database, no cloud; §Scope
+holds).
+
+It changes none of the architectural rules. It is a thinner-than-thin
+interface/presentation layer that sits *above* the `AnalysisResult` contract:
+
+- **Recomputes nothing.** The API calls the existing `load_workbook →
+  compare_workbooks → analysis_to_json` path and returns the already-serialized
+  `AnalysisResult` under a `{ metadata, analysis }` wrapper. The SPA's TypeScript
+  types mirror the JSON contract field-for-field and render it verbatim — the
+  same dumb-renderer discipline as the Markdown/HTML renderers, one layer out.
+- **Domain stays pure and deterministic.** Neither the API nor the SPA touches
+  the domain; the deterministic pipeline is unchanged and AI-free. Determinism
+  and byte-identical-with-AI-off hold exactly as before.
+- **Local-loopback-only, by construction.** The API binds `127.0.0.1` (the
+  `run()` entrypoint fixes the host) and a middleware refuses any non-loopback
+  client, so even a mis-launched `--host 0.0.0.0` cannot serve payroll over the
+  network. Uploads are size-capped and rejected (413) *before* openpyxl parses
+  them. This is the runtime match to keeping payroll off the network and out of
+  git — consistent with rule 3's "offline by default."
+- **AI narration is opt-in and out of the contract.** The SPA may request a
+  local-Ollama narrative (a toggle, off by default). The API runs the *same*
+  restate-only guard **server-side** and returns validated bullets as a
+  **separate presentation field** (`ai_summary`), never inside `AnalysisResult`.
+  On guard rejection or model-unavailability it falls back to the deterministic
+  insights; the API never returns unvalidated model text. The default `/compare`
+  path is AI-free.
