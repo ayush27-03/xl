@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 _MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MiB
 _UPLOAD_CHUNK = 1024 * 1024           # 1 MiB
 
+from .adapters.ai import NullAIProvider, OllamaAIProvider
 from .adapters.serialization import analysis_to_json
 from .adapters.workbook_loader import load_workbook
 from .app.pipeline import compare_workbooks
@@ -85,6 +86,8 @@ def health() -> dict[str, str]:
 async def compare_endpoint(
     left_file: UploadFile = File(...),
     right_file: UploadFile = File(...),
+    ai: bool = Query(False, description="Opt in to local Ollama narration."),
+    ai_model: str = Query("llama3.2", description="Local Ollama model name."),
 ) -> dict[str, Any]:
     """Compare two uploaded .xlsx workbooks.
 
@@ -107,6 +110,7 @@ async def compare_endpoint(
         except AnalysisError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    analysis = json.loads(analysis_to_json(result, indent=None))
     return {
         "metadata": {
             "request_id": request_id,
@@ -114,7 +118,44 @@ async def compare_endpoint(
             "left_filename": left.filename,
             "right_filename": right.filename,
         },
-        "analysis": json.loads(analysis_to_json(result, indent=None)),
+        "analysis": analysis,
+        "presentation": {
+            "ai_summary": _ai_summary(result, requested=ai, model=ai_model),
+        },
+    }
+
+
+def _ai_summary(result, *, requested: bool, model: str) -> dict[str, Any]:
+    """Presentation-only narration. Never mutates AnalysisResult."""
+    if not requested:
+        return {
+            "requested": False,
+            "available": False,
+            "model": None,
+            "bullets": [],
+            "note": "AI summary not requested.",
+            "source": "none",
+        }
+
+    provider = OllamaAIProvider(model) if model else NullAIProvider()
+    bullets = provider.narrate(result.insights, result.warnings)
+    if bullets:
+        return {
+            "requested": True,
+            "available": True,
+            "model": model,
+            "bullets": list(bullets),
+            "note": None,
+            "source": "ollama",
+        }
+
+    return {
+        "requested": True,
+        "available": False,
+        "model": model,
+        "bullets": [insight.message for insight in result.insights],
+        "note": "AI summary unavailable; showing deterministic insights instead.",
+        "source": "deterministic_fallback",
     }
 
 

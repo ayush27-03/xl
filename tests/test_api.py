@@ -27,6 +27,69 @@ def test_compare_endpoint_returns_metadata_and_analysis(compare_pair):
     assert "request_id" in payload["metadata"]
     assert payload["analysis"]["comparison"]["alignment"]["row_key"] == "Emp_ID"
     assert payload["analysis"]["insights"][0]["severity"] == "integrity"
+    assert payload["presentation"]["ai_summary"] == {
+        "requested": False,
+        "available": False,
+        "model": None,
+        "bullets": [],
+        "note": "AI summary not requested.",
+        "source": "none",
+    }
+
+
+def test_compare_endpoint_returns_validated_ai_summary_outside_analysis(compare_pair, monkeypatch):
+    def fake_narrate(self, insights, warnings):
+        return ("DoB changed in 1/3 rows.", "Salary changed by +10.0%.")
+
+    monkeypatch.setattr(api.OllamaAIProvider, "narrate", fake_narrate)
+    client = TestClient(app)
+    with open(compare_pair["compare_left"], "rb") as left, open(
+        compare_pair["compare_right"], "rb"
+    ) as right:
+        response = client.post(
+            "/compare?ai=true&ai_model=llama3.2",
+            files={
+                "left_file": ("left.xlsx", left, _XLSX),
+                "right_file": ("right.xlsx", right, _XLSX),
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "ai_summary" not in payload["analysis"]
+    assert payload["presentation"]["ai_summary"] == {
+        "requested": True,
+        "available": True,
+        "model": "llama3.2",
+        "bullets": ["DoB changed in 1/3 rows.", "Salary changed by +10.0%."],
+        "note": None,
+        "source": "ollama",
+    }
+
+
+def test_compare_endpoint_falls_back_when_ai_unavailable(compare_pair, monkeypatch):
+    monkeypatch.setattr(api.OllamaAIProvider, "narrate", lambda self, insights, warnings: ())
+    client = TestClient(app)
+    with open(compare_pair["compare_left"], "rb") as left, open(
+        compare_pair["compare_right"], "rb"
+    ) as right:
+        response = client.post(
+            "/compare?ai=true",
+            files={
+                "left_file": ("left.xlsx", left, _XLSX),
+                "right_file": ("right.xlsx", right, _XLSX),
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    summary = payload["presentation"]["ai_summary"]
+    assert summary["requested"] is True
+    assert summary["available"] is False
+    assert summary["model"] == "llama3.2"
+    assert summary["source"] == "deterministic_fallback"
+    assert summary["note"] == "AI summary unavailable; showing deterministic insights instead."
+    assert summary["bullets"][0] == payload["analysis"]["insights"][0]["message"]
 
 
 def test_compare_endpoint_rejects_non_xlsx(compare_pair):
