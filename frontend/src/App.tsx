@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import {
   AlertTriangle,
+  Brain,
   CheckCircle2,
   FileSpreadsheet,
   Loader2,
@@ -22,7 +23,7 @@ import {
   YAxis
 } from "recharts";
 import { compareWorkbooks, type CompareProgress } from "./lib/api";
-import type { AnalysisResponse, CellChange, Diagnostic, Insight } from "./lib/types";
+import type { AiSummary, AnalysisResponse, CellChange, Diagnostic, Insight } from "./lib/types";
 import { Alert } from "./components/ui/alert";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
@@ -100,6 +101,46 @@ function InsightCard({ insight }: { insight: Insight }) {
         </div>
       </div>
     </Alert>
+  );
+}
+
+function AiSummaryCard({ summary }: { summary: AiSummary }) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start gap-3">
+          <div className="rounded-md bg-cyan-50 p-2 text-cyan-800">
+            <Brain className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle>AI summary</CardTitle>
+            <CardDescription>
+              Optional local Ollama narration. Deterministic key findings above remain the source of truth.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!summary.requested ? (
+          <p className="text-sm leading-6 text-muted-foreground">AI narration was not requested for this comparison.</p>
+        ) : null}
+        {summary.requested && summary.note ? (
+          <Alert variant="warning">{summary.note}</Alert>
+        ) : null}
+        {summary.requested && summary.available ? (
+          <Badge variant="success">Validated local narration from {summary.model}</Badge>
+        ) : null}
+        {summary.bullets.length ? (
+          <ul className="space-y-2 text-sm leading-6">
+            {summary.bullets.map((bullet, index) => (
+              <li key={`${bullet}-${index}`} className="rounded-md border bg-muted/20 px-3 py-2">
+                {bullet}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -355,6 +396,7 @@ function Dashboard({ response }: { response: AnalysisResponse }) {
               {response.analysis.insights.map((insight) => <InsightCard key={insight.code} insight={insight} />)}
             </CardContent>
           </Card>
+          <AiSummaryCard summary={response.presentation.ai_summary} />
           <StructuralChanges response={response} />
           <RecordChanges response={response} />
           <DatasetSummary response={response} />
@@ -370,12 +412,14 @@ function Dashboard({ response }: { response: AnalysisResponse }) {
 export default function App() {
   const [files, setFiles] = useState<Record<Slot, File | null>>({ left: null, right: null });
   const [progress, setProgress] = useState<CompareProgress>({ phase: "idle", value: 0, label: "Waiting for files" });
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiModel, setAiModel] = useState("llama3.2");
 
   const mutation = useMutation({
     mutationFn: () => {
       if (!files.left || !files.right) throw new Error("Two .xlsx files are required for comparison.");
       setProgress({ phase: "uploading", value: 0, label: "Preparing upload" });
-      return compareWorkbooks(files.left, files.right, setProgress);
+      return compareWorkbooks(files.left, files.right, aiEnabled, aiModel, setProgress);
     }
   });
 
@@ -402,6 +446,32 @@ export default function App() {
           <div className="grid gap-4 md:grid-cols-2">
             <FileSlot label="Left workbook" file={files.left} onFile={(file) => setFiles((prev) => ({ ...prev, left: file }))} />
             <FileSlot label="Right workbook" file={files.right} onFile={(file) => setFiles((prev) => ({ ...prev, right: file }))} />
+          </div>
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-border"
+                checked={aiEnabled}
+                onChange={(event) => setAiEnabled(event.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-semibold">Add local AI narration</span>
+                <span className="mt-1 block text-sm leading-6 text-muted-foreground">
+                  Off by default. When enabled, the API sends only the deterministic insights and warnings to local Ollama, validates the result server-side, and falls back to deterministic findings if validation fails.
+                </span>
+              </span>
+            </label>
+            {aiEnabled ? (
+              <label className="mt-4 block max-w-sm text-sm font-medium">
+                Ollama model
+                <input
+                  className="mt-2 h-10 w-full rounded-md border bg-white px-3 text-sm"
+                  value={aiModel}
+                  onChange={(event) => setAiModel(event.target.value)}
+                />
+              </label>
+            ) : null}
           </div>
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <Button disabled={!canCompare} onClick={() => mutation.mutate()}>

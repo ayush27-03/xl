@@ -11,6 +11,8 @@ export interface CompareProgress {
 export function compareWorkbooks(
   left: File,
   right: File,
+  aiEnabled: boolean,
+  aiModel: string,
   onProgress: (progress: CompareProgress) => void
 ): Promise<AnalysisResponse> {
   return new Promise((resolve, reject) => {
@@ -18,8 +20,14 @@ export function compareWorkbooks(
     form.append("left_file", left);
     form.append("right_file", right);
 
+    const params = new URLSearchParams();
+    if (aiEnabled) {
+      params.set("ai", "true");
+      params.set("ai_model", aiModel);
+    }
+
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/compare");
+    xhr.open("POST", `/compare${params.size ? `?${params.toString()}` : ""}`);
     xhr.responseType = "json";
 
     xhr.upload.onprogress = (event) => {

@@ -9,6 +9,18 @@ export interface AnalysisResponse {
     right_filename: string;
   };
   analysis: AnalysisResult;
+  presentation: {
+    ai_summary: AiSummary;
+  };
+}
+
+export interface AiSummary {
+  requested: boolean;
+  available: boolean;
+  model: string | null;
+  bullets: string[];
+  note: string | null;
+  source: "none" | "ollama" | "deterministic_fallback" | string;
 }
 
 export interface AnalysisResult {

@@ -17,6 +17,8 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+*.tsbuildinfo
+.claude/
 
 # Editor/OS cruft
 .vscode/
