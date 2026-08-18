@@ -48,11 +48,17 @@ def test_domain_layer_is_pure(path):
     assert not leaked, f"{os.path.basename(path)} imports forbidden module(s): {sorted(leaked)}"
 
 
-def test_openpyxl_is_confined_to_the_loader():
+def test_openpyxl_is_confined_to_loader_and_xlsx_writer():
+    # openpyxl is the INPUT parser and stays in the loader. The xlsx OUTPUT
+    # renderer (report_xlsx) legitimately uses openpyxl as a *writer* — a terminal
+    # adapter that never surfaces openpyxl types to the domain or across a stage
+    # boundary (see architecture.md M11 addendum). Any OTHER module importing
+    # openpyxl is the rot this test exists to catch.
+    allowed = {"adapters/workbook_loader.py", "adapters/report_xlsx.py"}
     offenders = []
     for path in _py_files(PKG_ROOT):
         if "openpyxl" in _top_level_imports(path):
             rel = os.path.relpath(path, PKG_ROOT).replace(os.sep, "/")
-            if rel != "adapters/workbook_loader.py":
+            if rel not in allowed:
                 offenders.append(rel)
-    assert offenders == [], f"openpyxl imported outside the loader: {offenders}"
+    assert offenders == [], f"openpyxl imported outside the loader/xlsx-writer: {offenders}"

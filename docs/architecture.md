@@ -580,3 +580,22 @@ statutory component, out-of-band values) surface **prominently**. Technical
 diagnostics (fuzzy column matching, type coercion, encoding, header parsing) stay
 in `warnings` and are **collapsed** in the UI — promoted to a business statement
 only when they demonstrably corrupted a total.
+
+### Report Center — output renderers (PDF + XLSX)
+
+The portal generates a one-page reconciliation report as **real files** (a signed
+A4 PDF via `reportlab`, plus a reconciling XLSX via `openpyxl`), served by a
+`/report` endpoint. Two points keep this consistent with the rules above:
+
+- **Numbers are canonical.** `app/payroll_report.py` builds the report model
+  from the engine's own outputs — headline, bridge, residual and headcount come
+  verbatim from the `ReconciliationResult`; component and employee rankings are
+  aggregated from the normalized `Dataset` rows. The report *selects and ranks*
+  canonical facts; it never re-derives a total that could drift from the bridge.
+  Every XLSX sheet foots to the same headline delta.
+- **openpyxl-as-writer is not openpyxl-as-parser.** Rule 2 confines the openpyxl
+  *input parser* to the WorkbookLoader. The XLSX *output* renderer
+  (`adapters/report_xlsx.py`) uses openpyxl only to **write** a terminal artifact;
+  it surfaces no openpyxl type to the domain or across a stage boundary. The
+  domain stays openpyxl-free, and the fitness test is refined to permit exactly
+  these two adapters (loader + xlsx-writer) — nothing else.

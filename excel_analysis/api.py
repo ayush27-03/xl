@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -26,8 +26,11 @@ _MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MiB
 _UPLOAD_CHUNK = 1024 * 1024           # 1 MiB
 
 from .adapters.ai import NullAIProvider, OllamaAIProvider
+from .adapters.report_pdf import render_pdf
+from .adapters.report_xlsx import render_xlsx
 from .adapters.serialization import analysis_to_json
 from .adapters.workbook_loader import load_workbook
+from .app.payroll_report import build_payroll_report, period_token
 from .app.pipeline import compare_workbooks
 from .domain.errors import AnalysisError
 
@@ -126,6 +129,53 @@ async def compare_endpoint(
             "ai_summary": _ai_summary(result, requested=ai, model=ai_model),
         },
     }
+
+
+_REPORT_MEDIA = {
+    "pdf": "application/pdf",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+
+@app.post("/report")
+async def report_endpoint(
+    left_file: UploadFile = File(...),
+    right_file: UploadFile = File(...),
+    fmt: str = Query("pdf", alias="format", description="Report file format: pdf or xlsx."),
+    anchor: str = Query("Net Payable", description="Headline total column for the reconciliation."),
+    prepared_by: str = Query("Payroll Portal", description="Name shown on the report header."),
+) -> Response:
+    """Generate the one-page reconciliation report as a real file. Every figure
+    is the Python-canonical value; the file is streamed with a period-encoded
+    name so it is self-identifying in an inbox."""
+    _validate_upload(left_file)
+    _validate_upload(right_file)
+    if fmt not in _REPORT_MEDIA:
+        raise HTTPException(status_code=400, detail="format must be 'pdf' or 'xlsx'.")
+
+    with tempfile.TemporaryDirectory(prefix="excel-analysis-") as tmp:
+        left = await _persist_upload(left_file, Path(tmp) / "left.xlsx")
+        right = await _persist_upload(right_file, Path(tmp) / "right.xlsx")
+        try:
+            left_raw = load_workbook(str(left.path))
+            right_raw = load_workbook(str(right.path))
+            result = compare_workbooks(left_raw, right_raw, anchor=anchor)
+            report = build_payroll_report(
+                result, left_raw, right_raw,
+                left_name=left.filename, right_name=right.filename, prepared_by=prepared_by,
+            )
+        except AnalysisError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except ValueError as exc:  # reconciliation not applicable to these files
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    data = render_pdf(report) if fmt == "pdf" else render_xlsx(report)
+    filename = f"Payroll_Reconciliation_{period_token(report.period_prev)}_vs_{period_token(report.period_curr)}.{fmt}"
+    return Response(
+        content=data,
+        media_type=_REPORT_MEDIA[fmt],
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def _ai_summary(result, *, requested: bool, model: str) -> dict[str, Any]:

@@ -75,6 +75,7 @@ export default function App() {
         response={response}
         model={model}
         anchor={anchor}
+        files={files}
         onAnchorChange={(a) => { setAnchor(a); mutation.mutate(a); }}
         onReset={() => { mutation.reset(); setFiles({ left: null, right: null }); }}
       />

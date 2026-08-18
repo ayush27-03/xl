@@ -14,6 +14,49 @@ export interface CompareOptions {
   anchor?: string;
 }
 
+export interface ReportOptions {
+  format: "pdf" | "xlsx";
+  anchor: string;
+  preparedBy: string;
+}
+
+/** POST the two workbooks to /report and save the returned file, using the
+ * server's period-encoded filename. The report is generated server-side so its
+ * numbers are the canonical engine figures. */
+export async function downloadReport(left: File, right: File, options: ReportOptions): Promise<string> {
+  const form = new FormData();
+  form.append("left_file", left);
+  form.append("right_file", right);
+  const params = new URLSearchParams({
+    format: options.format,
+    anchor: options.anchor,
+    prepared_by: options.preparedBy || "Payroll Portal"
+  });
+  const resp = await fetch(`/report?${params.toString()}`, { method: "POST", body: form });
+  if (!resp.ok) {
+    let detail = resp.statusText;
+    try {
+      detail = (await resp.json()).detail ?? detail;
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new Error(typeof detail === "string" ? detail : "Report generation failed");
+  }
+  const blob = await resp.blob();
+  const cd = resp.headers.get("Content-Disposition") ?? "";
+  const match = cd.match(/filename="([^"]+)"/);
+  const name = match ? match[1] : `Payroll_Reconciliation.${options.format}`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return name;
+}
+
 export function compareWorkbooks(
   left: File,
   right: File,

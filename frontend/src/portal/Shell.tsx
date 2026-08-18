@@ -18,18 +18,19 @@ import { Employees } from "../screens/Employees";
 import { Components } from "../screens/Components";
 import { Organization } from "../screens/Organization";
 import { DataQuality } from "../screens/DataQuality";
+import { Reports } from "../screens/Reports";
 import { cn } from "../lib/utils";
 
-type View = "dashboard" | "employees" | "components" | "organization" | "quality";
+type View = "dashboard" | "employees" | "components" | "organization" | "reports" | "quality";
 
 const NAV: { id: View | string; label: string; icon: typeof Users; ready: boolean }[] = [
   { id: "dashboard", label: "Executive Dashboard", icon: LayoutDashboard, ready: true },
   { id: "employees", label: "Employees", icon: Users, ready: true },
   { id: "components", label: "Components", icon: Layers, ready: true },
   { id: "organization", label: "Organization", icon: Building2, ready: true },
+  { id: "reports", label: "Reports", icon: FileText, ready: true },
   { id: "change", label: "Change Intelligence", icon: GitCompareArrows, ready: false },
   { id: "analytics", label: "Deep Analytics", icon: BarChart3, ready: false },
-  { id: "reports", label: "Reports", icon: FileText, ready: false },
   { id: "quality", label: "Data Quality", icon: ShieldCheck, ready: true }
 ];
 
@@ -38,6 +39,7 @@ const TITLES: Record<View, string> = {
   employees: "Employees",
   components: "Component Analytics",
   organization: "Organization",
+  reports: "Report Center",
   quality: "Data Quality"
 };
 
@@ -47,11 +49,12 @@ interface Props {
   response: AnalysisResponse;
   model: PortalModel;
   anchor: string;
+  files: { left: File | null; right: File | null };
   onAnchorChange: (anchor: string) => void;
   onReset: () => void;
 }
 
-export function Shell({ response, model, anchor, onAnchorChange, onReset }: Props) {
+export function Shell({ response, model, anchor, files, onAnchorChange, onReset }: Props) {
   const [view, setView] = useState<View>("dashboard");
   const [focusId, setFocusId] = useState<string | null>(null);
   const [filter, setFilter] = useState<EmployeeFilter | undefined>(undefined);
@@ -137,10 +140,10 @@ export function Shell({ response, model, anchor, onAnchorChange, onReset }: Prop
               </select>
             </label>
             <button
-              onClick={() => window.print()}
+              onClick={() => setView("reports")}
               className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted/50"
             >
-              <Printer className="h-4 w-4" /> Export
+              <Printer className="h-4 w-4" /> Report
             </button>
             <button
               onClick={onReset}
@@ -187,6 +190,8 @@ export function Shell({ response, model, anchor, onAnchorChange, onReset }: Prop
             <Components model={model} onOpenEmployee={openEmployee} onViewEmployees={viewEmployees} />
           ) : view === "organization" ? (
             <Organization model={model} onViewEmployees={viewEmployees} />
+          ) : view === "reports" ? (
+            <Reports model={model} files={files} anchor={anchor} />
           ) : view === "quality" ? (
             <DataQuality
               model={model}
