@@ -406,5 +406,223 @@
         "cell:Salary delta=40.0 pct=10.0"
       ]
     }
-  ]
+  ],
+  "datasets": {
+    "left": {
+      "name": "Pay!A1:F5",
+      "n_rows": 4,
+      "provenance": {
+        "sheet": "Pay",
+        "range": "A1:F5",
+        "header_row": 1
+      },
+      "columns": [
+        {
+          "name": "Emp_ID",
+          "type": "number"
+        },
+        {
+          "name": "Name",
+          "type": "text"
+        },
+        {
+          "name": "Salary",
+          "type": "number"
+        },
+        {
+          "name": "City",
+          "type": "text"
+        },
+        {
+          "name": "DoB",
+          "type": "date"
+        },
+        {
+          "name": "ExitReason",
+          "type": "text"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "Alice",
+          100,
+          "London",
+          "1990-01-01T00:00:00",
+          null
+        ],
+        [
+          2,
+          "Bob",
+          200,
+          "Paris",
+          "1991-02-02T00:00:00",
+          null
+        ],
+        [
+          3,
+          "Carol",
+          300,
+          "Rome",
+          "1992-03-03T00:00:00",
+          null
+        ],
+        [
+          4,
+          "Dave",
+          400,
+          "Berlin",
+          "1993-04-04T00:00:00",
+          "resigned"
+        ]
+      ]
+    },
+    "right": {
+      "name": "Pay!A1:F5",
+      "n_rows": 4,
+      "provenance": {
+        "sheet": "Pay",
+        "range": "A1:F5",
+        "header_row": 1
+      },
+      "columns": [
+        {
+          "name": "Emp_ID",
+          "type": "number"
+        },
+        {
+          "name": "Name",
+          "type": "text"
+        },
+        {
+          "name": "Salary",
+          "type": "number"
+        },
+        {
+          "name": "City",
+          "type": "text"
+        },
+        {
+          "name": "DoB",
+          "type": "text"
+        },
+        {
+          "name": "Bonus",
+          "type": "number"
+        }
+      ],
+      "rows": [
+        [
+          2,
+          "Bob",
+          220,
+          "Paris",
+          "1991-02-02",
+          10
+        ],
+        [
+          3,
+          "Carol",
+          330,
+          "Turin",
+          "1991-02-02",
+          20
+        ],
+        [
+          4,
+          "Dave",
+          440,
+          "Berlin",
+          "1993-04-04",
+          30
+        ],
+        [
+          5,
+          "Eve",
+          550,
+          "Madrid",
+          "1994-05-05",
+          40
+        ]
+      ]
+    }
+  },
+  "reconciliation": {
+    "comparable": false,
+    "anchor": null,
+    "anchor_requested": "Net Payable",
+    "anchor_substituted": false,
+    "key_column": "Emp_ID",
+    "total_left": 0.0,
+    "total_right": 0.0,
+    "delta": 0.0,
+    "buckets": {
+      "joiners": {
+        "label": "",
+        "count": 0,
+        "amount": 0.0
+      },
+      "leavers": {
+        "label": "",
+        "count": 0,
+        "amount": 0.0
+      },
+      "retained": {
+        "label": "",
+        "count": 0,
+        "amount": 0.0
+      }
+    },
+    "retained": {
+      "compensation_delta": 0.0,
+      "reimbursement_delta": 0.0,
+      "residual": 0.0
+    },
+    "category_flows": [],
+    "classification": [
+      {
+        "column": "Emp_ID",
+        "role": "identity",
+        "category": "none",
+        "confidence": 1.0
+      },
+      {
+        "column": "Name",
+        "role": "identity",
+        "category": "none",
+        "confidence": 1.0
+      },
+      {
+        "column": "Salary",
+        "role": "attendance",
+        "category": "none",
+        "confidence": 1.0
+      },
+      {
+        "column": "City",
+        "role": "identity",
+        "category": "none",
+        "confidence": 1.0
+      },
+      {
+        "column": "DoB",
+        "role": "identity",
+        "category": "none",
+        "confidence": 1.0
+      },
+      {
+        "column": "Bonus",
+        "role": "attendance",
+        "category": "none",
+        "confidence": 1.0
+      }
+    ],
+    "diagnostics": [
+      {
+        "severity": "warning",
+        "code": "reconciliation-not-applicable",
+        "message": "No shared numeric total column (e.g. Net Payable) found in both periods; the payroll bridge is not applicable."
+      }
+    ]
+  }
 }

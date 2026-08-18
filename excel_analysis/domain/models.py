@@ -326,18 +326,112 @@ class Insight:
     evidence: tuple[str, ...]
 
 
+# ---------------------------------------------------------------------------
+# Reconciliation layer (M11) — the payroll-portal sign-off contract. Pure and
+# deterministic: walks Period-A total to Period-B total through mutually
+# exclusive buckets that tie out to the rupee (see architecture.md addendum).
+# Produced by the Reconciliation analyzer from two Datasets + an Alignment.
+# ---------------------------------------------------------------------------
+
+
+class ColumnRole(str, Enum):
+    """Structural payroll role of a normalized column, derived from the file's
+    own layout (subtotal anchors + position), never from a name guess."""
+
+    IDENTITY = "identity"        # id / name / org attrs / dates / bank — context
+    ATTENDANCE = "attendance"    # numeric-but-not-pay (days worked, LOP, ...)
+    COMPONENT = "component"      # an atomic pay component (earning/ded/reimb)
+    SUBTOTAL = "subtotal"        # a stored total (gross/net/statutory)
+    OTHER = "other"
+
+
+class PayCategory(str, Enum):
+    EARNING = "earning"
+    DEDUCTION = "deduction"
+    REIMBURSEMENT = "reimbursement"
+    NONE = "none"
+
+
+@dataclass(frozen=True)
+class ColumnClassification:
+    """Authoritative column→role/category map, computed once in Python so the
+    SPA groups components consistently. `confidence` < 1 flags a block whose
+    components did not sum to their stored subtotal."""
+
+    column: str
+    role: ColumnRole
+    category: PayCategory
+    confidence: float = 1.0
+
+
+@dataclass(frozen=True)
+class BucketFlow:
+    """One mutually-exclusive step of the reconciliation bridge. `amount` is the
+    signed contribution to the headline delta (leavers are negative)."""
+
+    label: str
+    count: int
+    amount: float
+
+
+@dataclass(frozen=True)
+class CategoryFlow:
+    """Retained-population movement of one pay category, taken from its stored
+    subtotal column. `amount` is signed (deductions reduce net)."""
+
+    category: PayCategory
+    subtotal_column: Optional[str]
+    amount: float
+
+
+@dataclass(frozen=True)
+class ReconciliationResult:
+    """Deterministic Net-Payable (default) reconciliation. The three population
+    buckets always satisfy `delta == joiners.amount + leavers.amount +
+    retained.amount` by construction; the retained bucket further splits into
+    ring-fenced compensation-cost vs reimbursement/recovery movement plus an
+    explicit residual. `comparable` is False when no numeric anchor is shared —
+    a first-class outcome, never a crash (CLAUDE.md rule 5)."""
+
+    comparable: bool
+    anchor: Optional[str]                 # total column actually used
+    anchor_requested: str                 # what the caller asked for
+    anchor_substituted: bool              # True if a fallback anchor was used
+    key_column: Optional[str]             # alignment key (Employee_ID, ...)
+    total_left: float
+    total_right: float
+    delta: float
+    joiners: BucketFlow
+    leavers: BucketFlow
+    retained: BucketFlow
+    retained_compensation_delta: float    # ring-fenced: ΔNet Pay over retained
+    retained_reimbursement_delta: float   # ring-fenced: ΔGross Reimbursement
+    retained_residual: float              # retained − (compensation + reimb)
+    category_flows: tuple[CategoryFlow, ...]
+    classification: tuple[ColumnClassification, ...]
+    diagnostics: tuple[Diagnostic, ...] = ()  # reconciliation-scoped audit trail
+
+
 @dataclass(frozen=True)
 class AnalysisResult:
     """The comparison contract a renderer/dashboard consumes. Carries everything
     needed to draw the comparison without recomputing anything: both profiles,
     the full diff (schema + rows + cells + alignment provenance), the warnings,
-    and ranked insights (M7)."""
+    and ranked insights (M7).
+
+    M11 additively carries the two normalized `Dataset`s (so the portal can build
+    the roster, Employee 360, demographics and distributions without a second
+    request) and the `ReconciliationResult`. Both default to None so every
+    existing constructor and golden file is unaffected."""
 
     left_profile: DatasetProfile
     right_profile: DatasetProfile
     diff: DiffResult
     warnings: tuple[Diagnostic, ...]
     insights: tuple[Insight, ...] = ()
+    left_dataset: Optional["Dataset"] = None
+    right_dataset: Optional["Dataset"] = None
+    reconciliation: Optional["ReconciliationResult"] = None
 
 
 # ---------------------------------------------------------------------------

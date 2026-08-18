@@ -29,6 +29,66 @@ export interface AnalysisResult {
   right_profile: DatasetProfile;
   warnings: Diagnostic[];
   insights: Insight[];
+  // M11 additive blocks (null on non-comparison / legacy responses).
+  datasets: DatasetsBlock | null;
+  reconciliation: Reconciliation | null;
+}
+
+// --- M11: row-level data ----------------------------------------------------
+
+export interface DatasetsBlock {
+  left: SerializedDataset;
+  right: SerializedDataset;
+}
+
+export type CellValue = string | number | boolean | null;
+
+export interface SerializedDataset {
+  name: string;
+  n_rows: number;
+  provenance: { sheet: string; range: string; header_row: number };
+  columns: { name: string; type: string }[];
+  rows: CellValue[][]; // row-major, aligned to `columns` by index
+}
+
+// --- M11: reconciliation bridge --------------------------------------------
+
+export type ColumnRole = "identity" | "attendance" | "component" | "subtotal" | "other";
+export type PayCategory = "earning" | "deduction" | "reimbursement" | "none";
+
+export interface BucketFlow {
+  label: string;
+  count: number;
+  amount: number;
+}
+
+export interface CategoryFlow {
+  category: PayCategory;
+  subtotal_column: string | null;
+  amount: number;
+}
+
+export interface ColumnClassification {
+  column: string;
+  role: ColumnRole;
+  category: PayCategory;
+  confidence: number;
+}
+
+export interface Reconciliation {
+  comparable: boolean;
+  anchor: string | null;
+  anchor_requested: string;
+  anchor_substituted: boolean;
+  key_column: string | null;
+  total_left: number;
+  total_right: number;
+  delta: number;
+  buckets: { joiners: BucketFlow; leavers: BucketFlow; retained: BucketFlow };
+  retained: { compensation_delta: number; reimbursement_delta: number; residual: number };
+  category_flows: CategoryFlow[];
+  classification: ColumnClassification[];
+  diagnostics: Diagnostic[];
 }
 
 export interface Comparison {

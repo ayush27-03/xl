@@ -57,7 +57,73 @@ def _analysis(r: AnalysisResult) -> dict[str, Any]:
         "right_profile": _profile(r.right_profile),
         "warnings": [_diagnostic(d) for d in r.warnings],
         "insights": [_insight(i) for i in r.insights],
+        # M11 additive blocks: row-level data for the portal, and the payroll
+        # reconciliation bridge. `null` when absent so the key set is stable.
+        "datasets": _datasets(r),
+        "reconciliation": _reconciliation(r.reconciliation),
     }
+
+
+def _datasets(r: AnalysisResult) -> Any:
+    if r.left_dataset is None or r.right_dataset is None:
+        return None
+    return {"left": _dataset(r.left_dataset), "right": _dataset(r.right_dataset)}
+
+
+def _dataset(ds) -> dict[str, Any]:
+    """Row-major serialization of a normalized Dataset. Columns carry name+type;
+    rows are arrays aligned to `columns` by index (compact and unambiguous)."""
+    return {
+        "name": ds.name,
+        "n_rows": ds.n_rows,
+        "provenance": {
+            "sheet": ds.provenance.sheet_name,
+            "range": ds.provenance.region_ref,
+            "header_row": ds.provenance.header_row + 1,  # 1-based for humans
+        },
+        "columns": [{"name": c.name, "type": c.type.value} for c in ds.columns],
+        "rows": [
+            [_scalar(c.values[i]) for c in ds.columns] for i in range(ds.n_rows)
+        ],
+    }
+
+
+def _reconciliation(rec) -> Any:
+    if rec is None:
+        return None
+    return {
+        "comparable": rec.comparable,
+        "anchor": rec.anchor,
+        "anchor_requested": rec.anchor_requested,
+        "anchor_substituted": rec.anchor_substituted,
+        "key_column": rec.key_column,
+        "total_left": rec.total_left,
+        "total_right": rec.total_right,
+        "delta": rec.delta,
+        "buckets": {
+            "joiners": _bucket(rec.joiners),
+            "leavers": _bucket(rec.leavers),
+            "retained": _bucket(rec.retained),
+        },
+        "retained": {
+            "compensation_delta": rec.retained_compensation_delta,
+            "reimbursement_delta": rec.retained_reimbursement_delta,
+            "residual": rec.retained_residual,
+        },
+        "category_flows": [
+            {"category": f.category.value, "subtotal_column": f.subtotal_column, "amount": f.amount}
+            for f in rec.category_flows
+        ],
+        "classification": [
+            {"column": c.column, "role": c.role.value, "category": c.category.value, "confidence": c.confidence}
+            for c in rec.classification
+        ],
+        "diagnostics": [_diagnostic(d) for d in rec.diagnostics],
+    }
+
+
+def _bucket(b) -> dict[str, Any]:
+    return {"label": b.label, "count": b.count, "amount": b.amount}
 
 
 def _insight(i: Insight) -> dict[str, Any]:

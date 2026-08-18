@@ -31,6 +31,7 @@ from ..domain.models import (
 )
 from ..domain.normalizer import normalize
 from ..domain.profiler import profile_dataset
+from ..domain.reconciliation import reconcile
 
 
 def analyze(
@@ -86,6 +87,7 @@ def compare_workbooks(
     config: Config = DEFAULT_CONFIG,
     left_sheet: Optional[str] = None,
     right_sheet: Optional[str] = None,
+    anchor: str = "Net Payable",
 ) -> AnalysisResult:
     """Compare the main table of each workbook: detect -> normalize -> align ->
     compare -> profile. All stage diagnostics accumulate into `warnings`."""
@@ -99,12 +101,16 @@ def compare_workbooks(
 
     alignment = align(left_ds, right_ds, diagnostics)
     diff = compare(left_ds, right_ds, alignment, diagnostics)
+    reconciliation = reconcile(left_ds, right_ds, alignment, anchor=anchor)
     return AnalysisResult(
         left_profile=profile_dataset(left_ds),
         right_profile=profile_dataset(right_ds),
         diff=diff,
         warnings=diagnostics.to_tuple(),
         insights=generate_insights(diff),
+        left_dataset=left_ds,
+        right_dataset=right_ds,
+        reconciliation=reconciliation,
     )
 
 

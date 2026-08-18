@@ -487,3 +487,96 @@ interface/presentation layer that sits *above* the `AnalysisResult` contract:
   On guard rejection or model-unavailability it falls back to the deterministic
   insights; the API never returns unvalidated model text. The default `/compare`
   path is AI-free.
+
+---
+
+## Addendum — Payroll Portal & Reconciliation (M11; V1, local single-machine)
+
+The web layer graduates from a *diff viewer* into a **payroll intelligence
+portal**: a payroll manager loads two pay runs and, on one screen, sees how much
+net disbursement changed, what it is made of, who and what caused it, and what
+looks wrong — then exports a management-ready summary. This addendum records the
+**two contract changes** that requires. It changes none of the non-negotiable
+rules (CLAUDE.md 1–5); it extends the contract *additively* and adds one new
+**deterministic** domain stage.
+
+### What does NOT change
+
+- The domain stays pure and AI-free in the default path. The reconciliation math
+  is deterministic and byte-identical run-to-run (rule 3).
+- Only domain models cross boundaries. The row data exposed below is the
+  normalized `Dataset` (domain value objects) — **never a DataFrame or a raw
+  cell** (rule 2). openpyxl stays in the loader.
+- No new network egress. The API remains loopback-only; the browser already
+  receives salary values, so serializing the full roster to the *local* SPA adds
+  no exposure the local tool did not already have (rule 3, offline-by-default).
+- Determinism is regression-locked: the additive blocks get golden-file coverage;
+  existing goldens are unchanged because the new keys are additive.
+
+### Change 1 — a new deterministic stage: the Reconciliation analyzer
+
+A new pure domain module, **`Reconciliation`**, sits beside the Comparator. It
+consumes **two `Dataset`s + the `Alignment`** (nothing earlier, no other stage
+imported) and emits a `ReconciliationResult`. It answers the sign-off question:
+*walk Period-A total to Period-B total through mutually exclusive buckets that tie
+out to the rupee.*
+
+- **Headline anchor.** A single total column `T` (default **Net Payable** — the
+  cash that leaves the account and reconciles to treasury). The anchor is
+  **switchable** (e.g. to Gross Earnings for pure cost-cause analysis) and
+  auto-detection is a **fallback that is recorded loudly** (a `Diagnostic`) only
+  when the chosen anchor is genuinely absent from a file — never a silent
+  redefinition, which would make period-over-period comparisons apples-to-oranges.
+  A cost-to-company anchor is offered **only if** employer-contribution columns
+  exist; it is never fabricated.
+- **Tie-out as a structural identity, not an estimate.** Partition employees by
+  the alignment key into Joiners (B-only), Leavers (A-only), Retained (both):
+
+  ```
+  Total_B − Total_A ≡ Σ_J T_B − Σ_L T_A + Σ_R (T_B − T_A)
+  ```
+
+  The three buckets sum to the headline delta by construction.
+- **Ring-fenced reimbursement/recovery.** The Retained bucket is decomposed into
+  **mutually exclusive, sign-aware sub-buckets** — *compensation-cost movement*
+  (earnings Δ − deductions Δ) vs *reimbursement/recovery movement* (pass-through
+  items that swing without a salary change) — plus an explicit **residual**.
+- **Classification is structure-derived, auditable, never name-guessed.** The
+  file's own subtotal columns (`Gross Earnings`, `Gross Deduction`,
+  `Gross Reimbursement`, …) anchor which block each component belongs to, and each
+  block is **validated to sum to its subtotal**; a mismatch becomes the residual /
+  a `Diagnostic`, never a silent fudge (rules 4 & 5). Every classification carries
+  its provenance and is overridable.
+
+### Change 2 — additive serialization of canonical row data
+
+`AnalysisResult` (and its JSON) gains two additive blocks; every existing key is
+untouched, so older consumers keep working:
+
+- `analysis.datasets` — the two normalized `Dataset`s (typed columns × row
+  values, both periods), so the SPA can build the roster, Employee 360,
+  demographic group-bys, medians, distributions, and drill-to-source. This is
+  **serialization, not recomputation**: the `Dataset` already exists in
+  `compare_workbooks`.
+- `analysis.reconciliation` — the `ReconciliationResult` above (buckets, the
+  component/category decomposition, the residual, headcount in/out/retained, the
+  anchor + any fallback flag).
+
+### Division of labour — Python owns the numbers, TS owns the exploration
+
+- **Python (canonical, golden-tested):** extraction, comparison, and the
+  reconciliation bridge — every headline number and its rupee tie-out.
+- **TypeScript (derived presentation only):** percentages, group-bys, medians,
+  top-N materiality, distributions, and per-employee 360 self-consistency flags
+  (transparent, documented rules) computed *from the serialized canonical rows*.
+  The SPA never re-derives a canonical total; it presents and interrogates what
+  the engine already computed.
+
+### Data quality, split by audience
+
+Business-impact findings that change the numbers or the liability (duplicate
+`Employee_ID`, an employee unmatched across files, negative/zero net, a missing
+statutory component, out-of-band values) surface **prominently**. Technical
+diagnostics (fuzzy column matching, type coercion, encoding, header parsing) stay
+in `warnings` and are **collapsed** in the UI — promoted to a business statement
+only when they demonstrably corrupted a total.

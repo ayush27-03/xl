@@ -34,3 +34,23 @@ body {
 * {
   border-color: hsl(var(--border));
 }
+
+/* Export-to-PDF: the browser print dialog produces a forwardable summary.
+   Chrome hides the sidebar/topbar (Tailwind print:hidden) and cards flow full
+   width without page-breaking mid-card. */
+@media print {
+  body {
+    background: #fff;
+  }
+  main {
+    max-width: none !important;
+    padding: 8px 4px !important;
+  }
+  .shadow-soft {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  .sticky {
+    position: static !important;
+  }
+}

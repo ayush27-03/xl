@@ -1,58 +1,25 @@
 import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
-import {
-  AlertTriangle,
-  Brain,
-  CheckCircle2,
-  FileSpreadsheet,
-  Loader2,
-  ShieldAlert,
-  UploadCloud
-} from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from "recharts";
+import { FileSpreadsheet, Loader2, ShieldCheck, UploadCloud } from "lucide-react";
 import { compareWorkbooks, type CompareProgress } from "./lib/api";
-import type { AiSummary, AnalysisResponse, CellChange, Diagnostic, Insight } from "./lib/types";
+import { buildModel } from "./lib/analytics";
+import type { AnalysisResponse } from "./lib/types";
 import { Alert } from "./components/ui/alert";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { Progress } from "./components/ui/progress";
-import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
-import { Table, Td, Th } from "./components/ui/table";
+import { Shell } from "./portal/Shell";
 
 type Slot = "left" | "right";
 
-const rowColors = ["#0e7490", "#64748b", "#16a34a", "#dc2626"];
-
-function FileSlot({
-  label,
-  file,
-  onFile
-}: {
-  label: string;
-  file: File | null;
-  onFile: (file: File | null) => void;
-}) {
+function FileSlot({ label, hint, file, onFile }: { label: string; hint: string; file: File | null; onFile: (f: File | null) => void }) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     multiple: false,
-    accept: {
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"]
-    },
+    accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] },
     onDrop: (files) => onFile(files[0] ?? null)
   });
-
   return (
     <div
       {...getRootProps()}
@@ -63,24 +30,20 @@ function FileSlot({
     >
       <input {...getInputProps()} />
       <div className="flex items-start gap-3">
-        <div className="rounded-md bg-muted p-2 text-accent">
-          <UploadCloud className="h-5 w-5" />
-        </div>
+        <div className="rounded-md bg-muted p-2 text-accent"><UploadCloud className="h-5 w-5" /></div>
         <div>
           <p className="text-sm font-semibold">{label}</p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Drop an `.xlsx` workbook here, or click to browse.
-          </p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{hint}</p>
         </div>
       </div>
       {file ? (
         <div className="mt-4 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
           <FileSpreadsheet className="h-4 w-4 text-emerald-700" />
           <span className="truncate font-medium">{file.name}</span>
-          <button className="ml-auto text-muted-foreground hover:text-foreground" onClick={(event) => {
-            event.stopPropagation();
-            onFile(null);
-          }}>
+          <button
+            className="ml-auto text-muted-foreground hover:text-foreground"
+            onClick={(e) => { e.stopPropagation(); onFile(null); }}
+          >
             Remove
           </button>
         </div>
@@ -89,394 +52,74 @@ function FileSlot({
   );
 }
 
-function InsightCard({ insight }: { insight: Insight }) {
-  const integrity = insight.severity === "integrity";
-  return (
-    <Alert variant={integrity ? "danger" : insight.severity === "structural" ? "warning" : "default"}>
-      <div className="flex items-start gap-3">
-        {integrity ? <ShieldAlert className="mt-0.5 h-5 w-5 text-red-700" /> : <CheckCircle2 className="mt-0.5 h-5 w-5 text-slate-600" />}
-        <div>
-          <Badge variant={integrity ? "danger" : "muted"}>{insight.severity}</Badge>
-          <p className="mt-2 font-medium leading-6">{insight.message}</p>
-        </div>
-      </div>
-    </Alert>
-  );
-}
-
-function AiSummaryCard({ summary }: { summary: AiSummary }) {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          <div className="rounded-md bg-cyan-50 p-2 text-cyan-800">
-            <Brain className="h-5 w-5" />
-          </div>
-          <div>
-            <CardTitle>AI summary</CardTitle>
-            <CardDescription>
-              Optional local Ollama narration. Deterministic key findings above remain the source of truth.
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {!summary.requested ? (
-          <p className="text-sm leading-6 text-muted-foreground">AI narration was not requested for this comparison.</p>
-        ) : null}
-        {summary.requested && summary.note ? (
-          <Alert variant="warning">{summary.note}</Alert>
-        ) : null}
-        {summary.requested && summary.available ? (
-          <Badge variant="success">Validated local narration from {summary.model}</Badge>
-        ) : null}
-        {summary.bullets.length ? (
-          <ul className="space-y-2 text-sm leading-6">
-            {summary.bullets.map((bullet, index) => (
-              <li key={`${bullet}-${index}`} className="rounded-md border bg-muted/20 px-3 py-2">
-                {bullet}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function WarningPanel({ warnings }: { warnings: Diagnostic[] }) {
-  const important = warnings.filter((w) => w.severity !== "info" || w.code.includes("retyped") || w.code.includes("key"));
-  if (important.length === 0) return null;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Warnings & audit trail</CardTitle>
-        <CardDescription>Generated by the deterministic pipeline; no values are inferred by the interface.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {important.map((warning, index) => (
-          <Alert key={`${warning.code}-${index}`} variant={warning.severity === "warning" ? "warning" : "default"}>
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-700" />
-              <div>
-                <Badge variant="muted">{warning.code}</Badge>
-                <p className="mt-1 leading-6">{warning.message}</p>
-              </div>
-            </div>
-          </Alert>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function StructuralChanges({ response }: { response: AnalysisResponse }) {
-  const schema = response.analysis.comparison.schema;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Structural changes</CardTitle>
-        <CardDescription>Columns added, removed, retyped, or matched by the engine.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid gap-4 md:grid-cols-3">
-          <ChipList title="Added" items={schema.added} tone="success" />
-          <ChipList title="Removed" items={schema.removed} tone="danger" />
-          <ChipList title="Type changed" items={schema.retyped.map((r) => `${r.left}: ${r.from} → ${r.to}`)} tone="warning" />
-        </div>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Left column</Th>
-              <Th>Right column</Th>
-              <Th>Basis</Th>
-              <Th>Confidence</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {schema.matched.slice(0, 12).map((match) => (
-              <tr key={`${match.left}-${match.right}`}>
-                <Td>{match.left}</Td>
-                <Td>{match.right}</Td>
-                <Td><Badge variant="muted">{match.basis}</Badge></Td>
-                <Td>{match.confidence}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ChipList({ title, items, tone }: { title: string; items: string[]; tone: "success" | "danger" | "warning" }) {
-  return (
-    <div className="rounded-lg border bg-muted/20 p-4">
-      <p className="mb-3 text-sm font-semibold">{title}</p>
-      <div className="flex flex-wrap gap-2">
-        {items.length ? items.map((item) => <Badge key={item} variant={tone}>{item}</Badge>) : <Badge variant="muted">None</Badge>}
-      </div>
-    </div>
-  );
-}
-
-function RecordChanges({ response }: { response: AnalysisResponse }) {
-  const rows = response.analysis.comparison.rows;
-  const chartData = [
-    { name: "Changed", value: rows.changed },
-    { name: "Unchanged", value: rows.unchanged },
-    { name: "Added", value: rows.added },
-    { name: "Removed", value: rows.removed }
-  ];
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Record changes</CardTitle>
-        <CardDescription>
-          Rows aligned on {response.analysis.comparison.alignment.row_key ?? response.analysis.comparison.alignment.row_basis} with confidence {response.analysis.comparison.alignment.row_confidence}.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={52} outerRadius={82} paddingAngle={2}>
-                {chartData.map((_, index) => <Cell key={index} fill={rowColors[index]} />)}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {chartData.map((item, index) => (
-            <div key={item.name} className="rounded-lg border bg-muted/20 p-4">
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: rowColors[index] }} />
-                <p className="text-sm text-muted-foreground">{item.name}</p>
-              </div>
-              <p className="mt-2 text-3xl font-semibold">{item.value}</p>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ChangedValues({ response }: { response: AnalysisResponse }) {
-  const rows = response.analysis.comparison.rows.changes;
-  const cellRows = rows.flatMap((row) => row.cells.map((cell) => ({ row, cell }))).slice(0, 80);
-  const columnBars = useMemo(() => {
-    const seen = new Map<string, number>();
-    for (const row of rows) {
-      for (const cell of row.cells) seen.set(cell.column, (seen.get(cell.column) ?? 0) + 1);
-    }
-    return Array.from(seen.entries()).map(([name, value]) => ({ name, value })).slice(0, 8);
-  }, [rows]);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Changed values</CardTitle>
-        <CardDescription>Cell-level variance returned by the engine. Values are rendered verbatim.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="h-64 rounded-lg border bg-muted/20 p-3">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={columnBars} layout="vertical" margin={{ left: 24, right: 16 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" />
-              <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#0e7490" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Record</Th>
-              <Th>Column</Th>
-              <Th>Before</Th>
-              <Th>After</Th>
-              <Th>Delta</Th>
-              <Th>% change</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {cellRows.map(({ row, cell }, index) => (
-              <tr key={`${row.key}-${cell.column}-${index}`}>
-                <Td>{row.key ?? `${row.left_row} → ${row.right_row}`}</Td>
-                <Td>{cell.column}</Td>
-                <Td>{display(cell.before)}</Td>
-                <Td>{display(cell.after)}</Td>
-                <Td className={tone(cell)}>{cell.delta ?? ""}</Td>
-                <Td className={tone(cell)}>{cell.pct_change !== undefined ? `${cell.pct_change}%` : ""}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
-
-function tone(cell: CellChange) {
-  if (cell.delta === undefined) return "";
-  return cell.delta >= 0 ? "text-emerald-700" : "text-red-700";
-}
-
-function display(value: CellChange["before"]) {
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
-
-function DatasetSummary({ response }: { response: AnalysisResponse }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Datasets</CardTitle>
-        <CardDescription>Profiles returned alongside the comparison result.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4 md:grid-cols-2">
-        <ProfileCard label={response.metadata.left_filename} profile={response.analysis.left_profile} />
-        <ProfileCard label={response.metadata.right_filename} profile={response.analysis.right_profile} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function ProfileCard({ label, profile }: { label: string; profile: AnalysisResponse["analysis"]["left_profile"] }) {
-  return (
-    <div className="rounded-lg border bg-muted/20 p-4">
-      <p className="text-sm font-semibold">{label}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{profile.name}</p>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <div>
-          <p className="text-xs uppercase text-muted-foreground">Rows</p>
-          <p className="text-2xl font-semibold">{profile.n_rows}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase text-muted-foreground">Columns</p>
-          <p className="text-2xl font-semibold">{profile.n_columns}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Dashboard({ response }: { response: AnalysisResponse }) {
-  const [tab, setTab] = useState("overview");
-  return (
-    <section className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-lg border bg-card p-5 shadow-soft md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">Request {response.metadata.request_id}</p>
-          <h2 className="mt-1 text-2xl font-semibold">Comparison dashboard</h2>
-        </div>
-        <Badge variant="muted">Engine {response.metadata.engine_version}</Badge>
-      </div>
-
-      <Tabs>
-        <TabsList>
-          <TabsTrigger active={tab === "overview"} onClick={() => setTab("overview")}>Overview</TabsTrigger>
-          <TabsTrigger active={tab === "changes"} onClick={() => setTab("changes")}>Changed values</TabsTrigger>
-          <TabsTrigger active={tab === "warnings"} onClick={() => setTab("warnings")}>Warnings</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {tab === "overview" ? (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Key findings</CardTitle>
-              <CardDescription>Ranked deterministic insights from the engine.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {response.analysis.insights.map((insight) => <InsightCard key={insight.code} insight={insight} />)}
-            </CardContent>
-          </Card>
-          <AiSummaryCard summary={response.presentation.ai_summary} />
-          <StructuralChanges response={response} />
-          <RecordChanges response={response} />
-          <DatasetSummary response={response} />
-        </div>
-      ) : null}
-
-      {tab === "changes" ? <ChangedValues response={response} /> : null}
-      {tab === "warnings" ? <WarningPanel warnings={response.analysis.warnings} /> : null}
-    </section>
-  );
-}
-
 export default function App() {
   const [files, setFiles] = useState<Record<Slot, File | null>>({ left: null, right: null });
+  const [anchor, setAnchor] = useState("Net Payable");
   const [progress, setProgress] = useState<CompareProgress>({ phase: "idle", value: 0, label: "Waiting for files" });
-  const [aiEnabled, setAiEnabled] = useState(false);
-  const [aiModel, setAiModel] = useState("llama3.2");
 
-  const mutation = useMutation({
-    mutationFn: () => {
-      if (!files.left || !files.right) throw new Error("Two .xlsx files are required for comparison.");
+  const mutation = useMutation<AnalysisResponse, Error, string | undefined>({
+    mutationFn: (overrideAnchor) => {
+      if (!files.left || !files.right) throw new Error("Two .xlsx pay runs are required.");
       setProgress({ phase: "uploading", value: 0, label: "Preparing upload" });
-      return compareWorkbooks(files.left, files.right, aiEnabled, aiModel, setProgress);
+      return compareWorkbooks(files.left, files.right, { anchor: overrideAnchor ?? anchor }, setProgress);
     }
   });
 
+  const response = mutation.data;
+  const model = useMemo(() => (response ? buildModel(response.analysis) : null), [response]);
   const canCompare = files.left !== null && files.right !== null && !mutation.isPending;
 
+  if (response && model) {
+    return (
+      <Shell
+        response={response}
+        model={model}
+        anchor={anchor}
+        onAnchorChange={(a) => { setAnchor(a); mutation.mutate(a); }}
+        onReset={() => { mutation.reset(); setFiles({ left: null, right: null }); }}
+      />
+    );
+  }
+
   return (
-    <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 md:px-8">
+    <main className="mx-auto max-w-4xl space-y-8 px-4 py-10 md:px-8">
       <header className="space-y-3">
-        <Badge variant="muted">Local deterministic Excel comparison</Badge>
-        <div className="max-w-3xl">
-          <h1 className="text-3xl font-semibold tracking-normal md:text-4xl">Finance & HR workbook comparison</h1>
-          <p className="mt-3 text-base leading-7 text-muted-foreground">
-            Upload two `.xlsx` workbooks. The FastAPI adapter sends them to the frozen analysis engine; this dashboard renders the returned JSON without recalculating analytical values.
-          </p>
-        </div>
+        <Badge variant="muted">Local · offline · deterministic</Badge>
+        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Payroll Reconciliation Portal</h1>
+        <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+          Upload two pay runs. The portal reconciles previous → current to the rupee — separating real compensation-cost
+          movement from reimbursement/recovery noise — and lets you drill from the headline down to any employee's record.
+          Your payroll never leaves this machine.
+        </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Upload workbooks</CardTitle>
-          <CardDescription>Comparison requires two files. Single-file profiling stays in the CLI for now.</CardDescription>
+          <CardTitle>Compare two pay runs</CardTitle>
+          <CardDescription>Previous period on the left, current period on the right.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
-            <FileSlot label="Left workbook" file={files.left} onFile={(file) => setFiles((prev) => ({ ...prev, left: file }))} />
-            <FileSlot label="Right workbook" file={files.right} onFile={(file) => setFiles((prev) => ({ ...prev, right: file }))} />
+            <FileSlot label="Previous period" hint="Drop the earlier pay run (.xlsx)" file={files.left} onFile={(f) => setFiles((p) => ({ ...p, left: f }))} />
+            <FileSlot label="Current period" hint="Drop the current pay run (.xlsx)" file={files.right} onFile={(f) => setFiles((p) => ({ ...p, right: f }))} />
           </div>
-          <div className="rounded-lg border bg-muted/20 p-4">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-border"
-                checked={aiEnabled}
-                onChange={(event) => setAiEnabled(event.target.checked)}
-              />
-              <span>
-                <span className="block text-sm font-semibold">Add local AI narration</span>
-                <span className="mt-1 block text-sm leading-6 text-muted-foreground">
-                  Off by default. When enabled, the API sends only the deterministic insights and warnings to local Ollama, validates the result server-side, and falls back to deterministic findings if validation fails.
-                </span>
-              </span>
-            </label>
-            {aiEnabled ? (
-              <label className="mt-4 block max-w-sm text-sm font-medium">
-                Ollama model
-                <input
-                  className="mt-2 h-10 w-full rounded-md border bg-white px-3 text-sm"
-                  value={aiModel}
-                  onChange={(event) => setAiModel(event.target.value)}
-                />
-              </label>
-            ) : null}
-          </div>
+
+          <label className="flex max-w-sm flex-col text-sm font-medium">
+            Headline total (reconciliation anchor)
+            <select value={anchor} onChange={(e) => setAnchor(e.target.value)} className="mt-2 h-10 rounded-md border bg-white px-3 text-sm">
+              <option>Net Payable</option>
+              <option>Gross Earnings</option>
+              <option>Net Pay</option>
+            </select>
+            <span className="mt-1 text-xs font-normal text-muted-foreground">
+              Net Payable is the cash disbursed. You can switch this later.
+            </span>
+          </label>
+
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
-            <Button disabled={!canCompare} onClick={() => mutation.mutate()}>
+            <Button disabled={!canCompare} onClick={() => mutation.mutate(undefined)}>
               {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-              Compare workbooks
+              Reconcile pay runs
             </Button>
             <div className="min-w-0 flex-1">
               <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
@@ -486,11 +129,20 @@ export default function App() {
               <Progress value={progress.value} />
             </div>
           </div>
+
           {mutation.error ? <Alert variant="danger">{mutation.error.message}</Alert> : null}
+          {response && !model ? (
+            <Alert variant="warning">
+              These files were compared, but no shared payroll total (e.g. Net Payable) was found, so the reconciliation
+              bridge isn't applicable. Check that both files are pay runs with matching total columns.
+            </Alert>
+          ) : null}
         </CardContent>
       </Card>
 
-      {mutation.data ? <Dashboard response={mutation.data} /> : null}
+      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <ShieldCheck className="h-4 w-4" /> Files are processed by a loopback-only local engine and are never sent over the network.
+      </p>
     </main>
   );
 }

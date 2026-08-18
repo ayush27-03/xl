@@ -8,11 +8,16 @@ export interface CompareProgress {
   label: string;
 }
 
+export interface CompareOptions {
+  aiEnabled?: boolean;
+  aiModel?: string;
+  anchor?: string;
+}
+
 export function compareWorkbooks(
   left: File,
   right: File,
-  aiEnabled: boolean,
-  aiModel: string,
+  options: CompareOptions,
   onProgress: (progress: CompareProgress) => void
 ): Promise<AnalysisResponse> {
   return new Promise((resolve, reject) => {
@@ -21,10 +26,11 @@ export function compareWorkbooks(
     form.append("right_file", right);
 
     const params = new URLSearchParams();
-    if (aiEnabled) {
+    if (options.aiEnabled) {
       params.set("ai", "true");
-      params.set("ai_model", aiModel);
+      params.set("ai_model", options.aiModel ?? "llama3.2");
     }
+    if (options.anchor) params.set("anchor", options.anchor);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `/compare${params.size ? `?${params.toString()}` : ""}`);

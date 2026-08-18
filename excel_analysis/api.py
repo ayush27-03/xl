@@ -88,6 +88,7 @@ async def compare_endpoint(
     right_file: UploadFile = File(...),
     ai: bool = Query(False, description="Opt in to local Ollama narration."),
     ai_model: str = Query("llama3.2", description="Local Ollama model name."),
+    anchor: str = Query("Net Payable", description="Headline total column for the reconciliation bridge."),
 ) -> dict[str, Any]:
     """Compare two uploaded .xlsx workbooks.
 
@@ -106,7 +107,9 @@ async def compare_endpoint(
         left = await _persist_upload(left_file, Path(tmp) / "left.xlsx")
         right = await _persist_upload(right_file, Path(tmp) / "right.xlsx")
         try:
-            result = compare_workbooks(load_workbook(str(left.path)), load_workbook(str(right.path)))
+            result = compare_workbooks(
+                load_workbook(str(left.path)), load_workbook(str(right.path)), anchor=anchor
+            )
         except AnalysisError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
